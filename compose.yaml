@@ -1,0 +1,156 @@
+name: spb-transport
+
+services:
+  kafka:
+    image: ${KAFKA_IMAGE:?KAFKA_IMAGE is required}
+    hostname: kafka
+    ports:
+      - "${KAFKA_EXTERNAL_PORT:?KAFKA_EXTERNAL_PORT is required}:9092"
+    environment:
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:?KAFKA_CLUSTER_ID is required}
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:29092,CONTROLLER://:29093,PLAINTEXT_HOST://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:${KAFKA_EXTERNAL_PORT:?KAFKA_EXTERNAL_PORT is required}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  hdfs-namenode:
+    image: spb-transport-hadoop:local
+    build:
+      context: infra/hadoop
+      args:
+        HADOOP_IMAGE: ${HADOOP_IMAGE:?HADOOP_IMAGE is required}
+    hostname: hdfs-namenode
+    command:
+      - bash
+      - -c
+      - >-
+        if [ ! -d /data/name/current ]; then
+          hdfs namenode -format -force -nonInteractive;
+        fi;
+        exec hdfs namenode
+    ports:
+      - "${HDFS_NAMENODE_RPC_PORT:?HDFS_NAMENODE_RPC_PORT is required}:9000"
+      - "${HDFS_NAMENODE_HTTP_PORT:?HDFS_NAMENODE_HTTP_PORT is required}:9870"
+    volumes:
+      - ./infra/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./infra/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - hdfs-namenode-data:/data/name
+    healthcheck:
+      test: ["CMD-SHELL", "hdfs dfs -fs hdfs://hdfs-namenode:9000 -ls / >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  hdfs-datanode:
+    image: spb-transport-hadoop:local
+    build:
+      context: infra/hadoop
+      args:
+        HADOOP_IMAGE: ${HADOOP_IMAGE:?HADOOP_IMAGE is required}
+    hostname: hdfs-datanode
+    command: ["hdfs", "datanode"]
+    ports:
+      - "${HDFS_DATANODE_HTTP_PORT:?HDFS_DATANODE_HTTP_PORT is required}:9864"
+    volumes:
+      - ./infra/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./infra/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - hdfs-datanode-data:/data/data
+    depends_on:
+      hdfs-namenode:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "hdfs dfsadmin -fs hdfs://hdfs-namenode:9000 -report | grep -q 'Live datanodes (1)'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  spark-master:
+    image: ${SPARK_IMAGE:?SPARK_IMAGE is required}
+    hostname: spark-master
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+    environment:
+      SPARK_MASTER_HOST: spark-master
+      SPARK_MASTER_PORT: 7077
+      SPARK_MASTER_WEBUI_PORT: 8080
+    ports:
+      - "${SPARK_MASTER_PORT:?SPARK_MASTER_PORT is required}:7077"
+      - "${SPARK_MASTER_WEB_PORT:?SPARK_MASTER_WEB_PORT is required}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ': >/dev/tcp/localhost/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  spark-worker:
+    image: ${SPARK_IMAGE:?SPARK_IMAGE is required}
+    hostname: spark-worker
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
+    environment:
+      SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:?SPARK_WORKER_CORES is required}
+      SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:?SPARK_WORKER_MEMORY is required}
+      SPARK_WORKER_WEBUI_PORT: 8081
+    ports:
+      - "${SPARK_WORKER_WEB_PORT:?SPARK_WORKER_WEB_PORT is required}:8081"
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ': >/dev/tcp/localhost/8081'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  cassandra:
+    image: ${CASSANDRA_IMAGE:?CASSANDRA_IMAGE is required}
+    hostname: cassandra
+    ports:
+      - "${CASSANDRA_PORT:?CASSANDRA_PORT is required}:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: ${CASSANDRA_CLUSTER_NAME:?CASSANDRA_CLUSTER_NAME is required}
+      CASSANDRA_DC: ${CASSANDRA_DATACENTER:?CASSANDRA_DATACENTER is required}
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      HEAP_NEWSIZE: ${CASSANDRA_HEAP_NEWSIZE:?CASSANDRA_HEAP_NEWSIZE is required}
+      MAX_HEAP_SIZE: ${CASSANDRA_MAX_HEAP_SIZE:?CASSANDRA_MAX_HEAP_SIZE is required}
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE CLUSTER' localhost 9042 >/dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 40s
+    restart: unless-stopped
+
+volumes:
+  kafka-data:
+  hdfs-namenode-data:
+  hdfs-datanode-data:
+  cassandra-data:
