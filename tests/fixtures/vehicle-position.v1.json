@@ -1,0 +1,15 @@
+{
+  "schema_version": "1",
+  "event_id": "1111111111111111111111111111111111111111111111111111111111111111",
+  "collected_at": "2026-09-13T09:00:03Z",
+  "source_timestamp": "2026-09-13T09:00:00Z",
+  "vehicle_id": "18342",
+  "route_id": "42",
+  "latitude": 59.9343,
+  "longitude": 30.3351,
+  "bearing": 180.0,
+  "speed": 0,
+  "label": "18342",
+  "license_plate": "TEST"
+}
+
