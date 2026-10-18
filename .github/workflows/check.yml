@@ -16,10 +16,10 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-      - run: uv sync --locked --all-packages
+      - run: uv sync --locked
       - run: uv run ruff format --check .
       - run: uv run ruff check .
-      - run: uv run mypy packages/contracts/src apps/collector/src tests
+      - run: uv run mypy apps/collector/src packages/contracts/src tests
       - run: uv run pytest
 
   compose:
@@ -27,4 +27,3 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose --env-file .env.example config --quiet
-
