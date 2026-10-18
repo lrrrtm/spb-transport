@@ -10,6 +10,7 @@ dependencies = [
   "aiokafka>=0.14,<1",
   "gtfs-realtime-bindings>=1.0,<2",
   "httpx>=0.28,<1",
+  "protobuf==7.36.1",
   "pydantic-settings>=2.10,<3",
   "spb-transport-contracts",
 ]
