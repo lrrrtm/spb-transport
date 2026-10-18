@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import Field, HttpUrl, model_validator
+from pydantic import Field, HttpUrl, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +23,11 @@ class GtfsHttpSettings(BaseSettings):
     )
     retry_jitter_seconds: float = Field(ge=0, validation_alias="GTFS_RETRY_JITTER_SECONDS")
 
+    @field_validator("ca_bundle", mode="before")
+    @classmethod
+    def empty_ca_bundle_is_unset(cls, value: object) -> object:
+        return None if value == "" else value
+
     @model_validator(mode="after")
     def validate_tls_and_backoff(self) -> "GtfsHttpSettings":
         if self.ca_bundle is not None:
@@ -36,3 +41,17 @@ class GtfsHttpSettings(BaseSettings):
                 "GTFS_RETRY_BACKOFF_BASE_SECONDS"
             )
         return self
+
+
+class VehicleCollectorSettings(GtfsHttpSettings):
+    vehicle_poll_interval_seconds: float = Field(
+        gt=0, validation_alias="GTFS_VEHICLE_POLL_INTERVAL_SECONDS"
+    )
+    kafka_bootstrap_servers: str = Field(min_length=1, validation_alias="KAFKA_BOOTSTRAP_SERVERS")
+    kafka_vehicle_position_topic: str = Field(
+        min_length=1, validation_alias="KAFKA_VEHICLE_POSITION_TOPIC"
+    )
+    kafka_client_id: str = Field(min_length=1, validation_alias="KAFKA_CLIENT_ID")
+    kafka_linger_ms: int = Field(ge=0, validation_alias="KAFKA_LINGER_MS")
+    kafka_max_batch_size_bytes: int = Field(gt=0, validation_alias="KAFKA_MAX_BATCH_SIZE_BYTES")
+    kafka_request_timeout_ms: int = Field(gt=0, validation_alias="KAFKA_REQUEST_TIMEOUT_MS")
