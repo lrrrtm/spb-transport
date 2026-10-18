@@ -1,0 +1,36 @@
+import asyncio
+from datetime import UTC, datetime
+from typing import Any
+from unittest.mock import AsyncMock
+
+from spb_transport_collector.kafka import KafkaPositionPublisher
+from spb_transport_contracts import VehiclePositionV1
+
+
+def test_publisher_uses_vehicle_key_and_closes_producer() -> None:
+    producer: Any = AsyncMock()
+    event = VehiclePositionV1(
+        schema_version="1",
+        event_id="1" * 64,
+        collected_at=datetime(2026, 9, 13, 9, 0, 3, tzinfo=UTC),
+        source_timestamp=datetime(2026, 9, 13, 9, 0, tzinfo=UTC),
+        vehicle_id="18342",
+        route_id="42",
+        latitude=59.9343,
+        longitude=30.3351,
+        speed=0,
+    )
+
+    async def scenario() -> None:
+        async with KafkaPositionPublisher(producer, "vehicle-position.v1") as publisher:
+            await publisher.publish((event,))
+
+    asyncio.run(scenario())
+
+    producer.start.assert_awaited_once()
+    producer.stop.assert_awaited_once()
+    producer.send_and_wait.assert_awaited_once_with(
+        "vehicle-position.v1",
+        key=b"18342",
+        value=event.model_dump_json().encode(),
+    )
