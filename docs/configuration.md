@@ -40,9 +40,16 @@
 - `GTFS_REALTIME_BASE_URL`;
 - `GTFS_TLS_VERIFY`;
 - optional `GTFS_CA_BUNDLE`;
+- `GTFS_CONNECT_TIMEOUT_SECONDS`;
+- `GTFS_READ_TIMEOUT_SECONDS`;
+- `GTFS_WRITE_TIMEOUT_SECONDS`;
+- `GTFS_POOL_TIMEOUT_SECONDS`;
+- `GTFS_RETRY_MAX_ATTEMPTS`;
+- `GTFS_RETRY_BACKOFF_BASE_SECONDS`;
+- `GTFS_RETRY_BACKOFF_MAX_SECONDS`;
+- `GTFS_RETRY_JITTER_SECONDS`;
 - отдельные polling intervals;
 - `vehicleIDs` batch size;
-- HTTP timeouts;
-- retry count и backoff/jitter;
 - Kafka bootstrap servers и topic names.
 
+HTTP timeout и retry-параметры обязательны: collector не подставляет их молча. Единственное встроенное безопасное значение — `GTFS_TLS_VERIFY=true`.

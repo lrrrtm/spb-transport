@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spb-transport-collector"
+version = "0.1.0"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "httpx>=0.28,<1",
+  "pydantic-settings>=2.10,<3",
+  "spb-transport-contracts",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+spb_transport_collector = ["py.typed"]
+
+[tool.uv.sources]
+spb-transport-contracts = { workspace = true }
