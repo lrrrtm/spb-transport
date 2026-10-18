@@ -7,6 +7,8 @@ name = "spb-transport-collector"
 version = "0.1.0"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+  "aiokafka>=0.14,<1",
+  "gtfs-realtime-bindings>=1.0,<2",
   "httpx>=0.28,<1",
   "pydantic-settings>=2.10,<3",
   "spb-transport-contracts",
