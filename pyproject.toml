@@ -36,3 +36,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.mypy]
 python_version = "3.13"
 strict = true
+mypy_path = "packages/contracts/src,apps/collector/src"
+
+[tool.uv.workspace]
+members = ["apps/collector", "packages/contracts"]
