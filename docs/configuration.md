@@ -48,7 +48,14 @@
 - `GTFS_RETRY_BACKOFF_BASE_SECONDS`;
 - `GTFS_RETRY_BACKOFF_MAX_SECONDS`;
 - `GTFS_RETRY_JITTER_SECONDS`;
-- отдельные polling intervals;
+- `GTFS_VEHICLE_POLL_INTERVAL_SECONDS`;
+- `KAFKA_BOOTSTRAP_SERVERS`;
+- `KAFKA_VEHICLE_POSITION_TOPIC`;
+- `KAFKA_CLIENT_ID`;
+- `KAFKA_LINGER_MS`;
+- `KAFKA_MAX_BATCH_SIZE_BYTES`;
+- `KAFKA_REQUEST_TIMEOUT_MS`;
+- polling interval для `/vehicletrips`, когда начнётся T03;
 - `vehicleIDs` batch size;
 - Kafka bootstrap servers и topic names.
 
