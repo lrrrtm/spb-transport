@@ -15,7 +15,7 @@ typecheck:
 	uv --system-certs run mypy apps/collector/src packages/contracts/src tests
 
 test:
-	uv --system-certs run pytest
+	uv --system-certs run pytest -n 6
 
 compose-check:
 	docker compose --env-file .env.example config --quiet
