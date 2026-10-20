@@ -370,7 +370,6 @@ dependencies = [
     { name = "aiokafka" },
     { name = "gtfs-realtime-bindings" },
     { name = "httpx" },
-    { name = "protobuf" },
     { name = "pydantic-settings" },
     { name = "spb-transport-contracts" },
 ]
@@ -380,7 +379,6 @@ requires-dist = [
     { name = "aiokafka", specifier = ">=0.14,<1" },
     { name = "gtfs-realtime-bindings", specifier = ">=1.0,<2" },
     { name = "httpx", specifier = ">=0.28,<1" },
-    { name = "protobuf", specifier = "==7.36.1" },
     { name = "pydantic-settings", specifier = ">=2.10,<3" },
     { name = "spb-transport-contracts", editable = "packages/contracts" },
 ]
