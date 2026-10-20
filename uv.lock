@@ -13,6 +13,26 @@ dev = [
     { name = "mypy", specifier = ">=1.18,<2" },
     { name = "pytest", specifier = ">=9,<10" },
     { name = "ruff", specifier = ">=0.14,<1" },
+    { name = "types-protobuf", specifier = ">=6.32,<7" },
+]
+
+[[package]]
+name = "aiokafka"
+version = "0.14.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "async-timeout" },
+    { name = "packaging" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/89/5f/dfc1180fd22d1acdc91949ec36e97199c43742dacb057cb8efed3679ed04/aiokafka-0.14.0.tar.gz", hash = "sha256:8ffdc945798ba4d3d132b705d4244d0a1f493925efb57c637a2ca88ee82794e1", size = 601374, upload-time = "2026-04-29T10:43:03.574Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/30/b0/c9384541b2e4cc52a16402fc53fb9d44af0d78d37954cf8c7271c376ad47/aiokafka-0.14.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:db16e43fac4c1c5006131046c1bf370c580d6ac4495a10ac7778245710943179", size = 345859, upload-time = "2026-04-29T10:42:45.449Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/d1/fc266d9f4ffba4f197356c6ffdfbb0fe32e7cb874e240f299935d058ac06/aiokafka-0.14.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:32a8e91d88cf3ccf0778927715610d6579888c5f4748db4c2022cda25d628a48", size = 348284, upload-time = "2026-04-29T10:42:47.104Z" },
+    { url = "https://files.pythonhosted.org/packages/b2/8e/0c4c270786dac79f3fca74c6166c3a25b61b0d26132be0d69f0d7f206f0a/aiokafka-0.14.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:aad4a575a506e7784e25e430f27026fe2f4378560b21b7f4e8c9a54f0d06eaee", size = 1117867, upload-time = "2026-04-29T10:42:48.394Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/7f/3b89fbd0a3be9edfd5b51e20bb5cd695c851219b63c501c051cf84367fa9/aiokafka-0.14.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:75e4a003502c9c3b5c705fa7c00d634ba146bf38fa5d525b80bb6ff6e3e779fe", size = 1108860, upload-time = "2026-04-29T10:42:50.249Z" },
+    { url = "https://files.pythonhosted.org/packages/b3/59/849aba75cff93277bf6bf8b630de79e902949ff7ec48e4b12a64e6e32cae/aiokafka-0.14.0-cp313-cp313-win32.whl", hash = "sha256:a128e213cbc2bce0ea3db65a68920e52cebeeb8209bf001ac7aa022a8bd54d7d", size = 310889, upload-time = "2026-04-29T10:42:52.038Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/e5/52eab8f8515d23da7b5d90e2c5ba10eab9494a0314f749e3f73e003f4a50/aiokafka-0.14.0-cp313-cp313-win_amd64.whl", hash = "sha256:d6fa16bef3544be87bd1a7a8317b9d85e3da59f3202326d9ff22735ed052746e", size = 329470, upload-time = "2026-04-29T10:42:53.536Z" },
 ]
 
 [[package]]
@@ -38,6 +58,15 @@ wheels = [
 ]
 
 [[package]]
+name = "async-timeout"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/ae/136395dfbfe00dfc94da3f3e136d0b13f394cba8f4841120e34226265780/async_timeout-5.0.1.tar.gz", hash = "sha256:d9321a7a3d5a6a5e187e824d2fa0793ce379a202935782d555d6e9d2735677d3", size = 9274, upload-time = "2024-11-06T16:41:39.6Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/ba/e2081de779ca30d473f21f5b30e0e737c438205440784c7dfc81efc2b029/async_timeout-5.0.1-py3-none-any.whl", hash = "sha256:39e3809566ff85354557ec2398b55e096c8364bacac9405a7a1fa429e77fe76c", size = 6233, upload-time = "2024-11-06T16:41:37.9Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -53,6 +82,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697, upload-time = "2022-10-25T02:36:22.414Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335, upload-time = "2022-10-25T02:36:20.889Z" },
+]
+
+[[package]]
+name = "gtfs-realtime-bindings"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/55/ed46db9267d2615851bfba3c22b6c0e7f88751efb5d5d1468291935c7f65/gtfs-realtime-bindings-1.0.0.tar.gz", hash = "sha256:2e8ced8904400cc93ab7e8520adb6934cfa601edacc6f593fc2cb4448662bb47", size = 6197, upload-time = "2023-02-23T17:53:20.8Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b3/67/1f030547f94716b3259d99ad93467a6608703942bc62f35e43b1bb8bc2e9/gtfs_realtime_bindings-1.0.0-py3-none-any.whl", hash = "sha256:0a9b57a103a5401895b65b6051344003b5fb213523ea4383596be017e6d67e2d", size = 5306, upload-time = "2025-12-03T18:45:09.045Z" },
 ]
 
 [[package]]
@@ -193,6 +234,21 @@ wheels = [
 ]
 
 [[package]]
+name = "protobuf"
+version = "7.36.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/86/73/f66c748df06e7fe24e658eddd600d19c4b40bad836c97ce2d0ad9851fb6b/protobuf-7.36.1.tar.gz", hash = "sha256:d0f6470f0ce2b84e3feaea2d4b816378b37ba4d4aa08a274305373de93e2d524", size = 512499, upload-time = "2026-08-31T22:40:04.667Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f7/6c/3a54a58f2948b0f485df9ecdd06590f15d0a7abf46a89d50c3de709ff4ff/protobuf-7.36.1-cp310-abi3-macosx_10_9_universal2.whl", hash = "sha256:3cf2ee25d006cee57294a1196ea43b37feb78e0dcd1e8af5c1aeddb777655aca", size = 456046, upload-time = "2026-08-31T22:39:56.865Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/08/9f9548793c771095245c0eeaf0c84b76b16a5ef26158043d456f551344a0/protobuf-7.36.1-cp310-abi3-manylinux2014_aarch64.whl", hash = "sha256:43d3d37b1eb24c113b9b7d02008cac44e423f00b611b7781ae998d7623972969", size = 344226, upload-time = "2026-08-31T22:39:58.263Z" },
+    { url = "https://files.pythonhosted.org/packages/fe/51/1bdbd612fa3c51e42ea6f45d05e84dc748ddcd2663e1aa1e89a00a33facd/protobuf-7.36.1-cp310-abi3-manylinux2014_s390x.whl", hash = "sha256:39c518c05586c016d7874ff6079ee115bcec1ea5fbb1d177fbf7867ef4c67e44", size = 357229, upload-time = "2026-08-31T22:39:59.198Z" },
+    { url = "https://files.pythonhosted.org/packages/22/df/c799fe7a05ef16ba853a59db01f3a2c5f7d0676469589ccc4874f76a2a88/protobuf-7.36.1-cp310-abi3-manylinux2014_x86_64.whl", hash = "sha256:97198b77e369a0abd8e262b8f6c7266c55ddb796a3a12c76d7b8881188ed83aa", size = 343228, upload-time = "2026-08-31T22:40:00.179Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/33/d4724ec5d86d496fe4108e220618aa0837ad3423a7af7ccdd9684ccc77c8/protobuf-7.36.1-cp310-abi3-win32.whl", hash = "sha256:0b53ce95272aad50ad25d7ff03373743209822e8ba42ea7fad27d2bee1547d00", size = 443002, upload-time = "2026-08-31T22:40:01.32Z" },
+    { url = "https://files.pythonhosted.org/packages/db/37/155788a0d8daded960375af604202805308169f9b859419ea0aa370946e2/protobuf-7.36.1-cp310-abi3-win_amd64.whl", hash = "sha256:51139351435d9b43d88a55eaa49fb6f737fbb478fb0cbf2cf694d1a04a9d3363", size = 456518, upload-time = "2026-08-31T22:40:02.494Z" },
+    { url = "https://files.pythonhosted.org/packages/39/ca/c47f91d3cab175b01fd8c4f0d80fdf8613be876cc616e66ad281a59c5ddf/protobuf-7.36.1-py3-none-any.whl", hash = "sha256:7d951e46b3f963d6c264c367c437921de9d5aedd9c3f9612b9077736b4e3ad5c", size = 179813, upload-time = "2026-08-31T22:40:03.54Z" },
+]
+
+[[package]]
 name = "pydantic"
 version = "2.13.5"
 source = { registry = "https://pypi.org/simple" }
@@ -311,14 +367,20 @@ name = "spb-transport-collector"
 version = "0.1.0"
 source = { editable = "apps/collector" }
 dependencies = [
+    { name = "aiokafka" },
+    { name = "gtfs-realtime-bindings" },
     { name = "httpx" },
+    { name = "protobuf" },
     { name = "pydantic-settings" },
     { name = "spb-transport-contracts" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "aiokafka", specifier = ">=0.14,<1" },
+    { name = "gtfs-realtime-bindings", specifier = ">=1.0,<2" },
     { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "protobuf", specifier = "==7.36.1" },
     { name = "pydantic-settings", specifier = ">=2.10,<3" },
     { name = "spb-transport-contracts", editable = "packages/contracts" },
 ]
@@ -333,6 +395,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "pydantic", specifier = ">=2.12,<3" }]
+
+[[package]]
+name = "types-protobuf"
+version = "6.32.1.20260221"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5f/e2/9aa4a3b2469508bd7b4e2ae11cbedaf419222a09a1b94daffcd5efca4023/types_protobuf-6.32.1.20260221.tar.gz", hash = "sha256:6d5fb060a616bfb076cbb61b4b3c3969f5fc8bec5810f9a2f7e648ee5cbcbf6e", size = 64408, upload-time = "2026-02-21T03:55:13.916Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2e/e8/1fd38926f9cf031188fbc5a96694203ea6f24b0e34bd64a225ec6f6291ba/types_protobuf-6.32.1.20260221-py3-none-any.whl", hash = "sha256:da7cdd947975964a93c30bfbcc2c6841ee646b318d3816b033adc2c4eb6448e4", size = 77956, upload-time = "2026-02-21T03:55:12.894Z" },
+]
 
 [[package]]
 name = "typing-extensions"
