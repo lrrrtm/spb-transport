@@ -3,8 +3,8 @@ from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock
 
-from spb_transport_collector.kafka import KafkaPositionPublisher
-from spb_transport_contracts import VehiclePositionV1
+from spb_transport_collector.kafka import KafkaPublisher
+from spb_transport_contracts import VehicleEtaSnapshotV1, VehiclePositionV1
 
 
 def test_publisher_uses_vehicle_key_and_closes_producer() -> None:
@@ -22,8 +22,8 @@ def test_publisher_uses_vehicle_key_and_closes_producer() -> None:
     )
 
     async def scenario() -> None:
-        async with KafkaPositionPublisher(producer, "vehicle-position.v1") as publisher:
-            await publisher.publish((event,))
+        async with KafkaPublisher(producer, "vehicle-position.v1", "vehicle-eta.v1") as publisher:
+            await publisher.publish_positions((event,))
 
     asyncio.run(scenario())
 
@@ -31,6 +31,30 @@ def test_publisher_uses_vehicle_key_and_closes_producer() -> None:
     producer.stop.assert_awaited_once()
     producer.send_and_wait.assert_awaited_once_with(
         "vehicle-position.v1",
+        key=b"18342",
+        value=event.model_dump_json().encode(),
+    )
+
+
+def test_eta_publisher_accepts_empty_forecast_snapshot() -> None:
+    producer: Any = AsyncMock()
+    event = VehicleEtaSnapshotV1(
+        schema_version="1",
+        event_id="2" * 64,
+        collected_at=datetime(2026, 9, 13, 9, 0, 3, tzinfo=UTC),
+        vehicle_id="18342",
+        route_id="42",
+        forecasts=(),
+    )
+
+    async def scenario() -> None:
+        publisher = KafkaPublisher(producer, "vehicle-position.v1", "vehicle-eta.v1")
+        await publisher.publish_eta((event,))
+
+    asyncio.run(scenario())
+
+    producer.send_and_wait.assert_awaited_once_with(
+        "vehicle-eta.v1",
         key=b"18342",
         value=event.model_dump_json().encode(),
     )
