@@ -34,3 +34,46 @@ class RawArchiveSettings:
             checkpoint_path=required("HDFS_RAW_CHECKPOINT_PATH"),
             trigger_interval=required("SPARK_TRIGGER_INTERVAL"),
         )
+
+
+def required_positive_int(name: str) -> int:
+    value = required(name)
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise ValueError(f"{name} must be a positive integer") from error
+    if parsed <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return parsed
+
+
+@dataclass(frozen=True)
+class PositionStreamSettings:
+    kafka_bootstrap_servers: str
+    kafka_topic: str
+    starting_offsets: str
+    trigger_interval: str
+    watermark: str
+    max_source_age_seconds: int
+    max_future_skew_seconds: int
+    processed_path: str
+    quarantine_path: str
+    checkpoint_path: str
+
+    @classmethod
+    def from_env(cls) -> "PositionStreamSettings":
+        starting_offsets = required("SPARK_KAFKA_STARTING_OFFSETS")
+        if starting_offsets not in {"earliest", "latest"}:
+            raise ValueError("SPARK_KAFKA_STARTING_OFFSETS must be earliest or latest")
+        return cls(
+            kafka_bootstrap_servers=required("KAFKA_BOOTSTRAP_SERVERS"),
+            kafka_topic=required("KAFKA_VEHICLE_POSITION_TOPIC"),
+            starting_offsets=starting_offsets,
+            trigger_interval=required("SPARK_TRIGGER_INTERVAL"),
+            watermark=required("SPARK_POSITION_WATERMARK"),
+            max_source_age_seconds=required_positive_int("SPARK_POSITION_MAX_SOURCE_AGE_SECONDS"),
+            max_future_skew_seconds=required_positive_int("SPARK_POSITION_MAX_FUTURE_SKEW_SECONDS"),
+            processed_path=required("HDFS_POSITION_PROCESSED_PATH"),
+            quarantine_path=required("HDFS_POSITION_QUARANTINE_PATH"),
+            checkpoint_path=required("HDFS_POSITION_CHECKPOINT_PATH"),
+        )

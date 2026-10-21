@@ -85,6 +85,20 @@ HTTP timeout и retry-параметры обязательны: collector не 
 Все пути, topic и интервал обязательны. Kafka connector закреплён в Spark-образе вместе с
 checksum зависимостей: job не скачивает JAR при старте.
 
+## Vehicle position Spark job
+
+- `KAFKA_VEHICLE_POSITION_TOPIC` — входной topic typed position events;
+- `SPARK_POSITION_WATERMARK` — допустимое опоздание для stateful deduplication;
+- `SPARK_POSITION_MAX_SOURCE_AGE_SECONDS` — порог flag `stale_source_timestamp`;
+- `SPARK_POSITION_MAX_FUTURE_SKEW_SECONDS` — порог flag `future_source_timestamp`;
+- `HDFS_POSITION_PROCESSED_PATH` — валидные дедуплицированные позиции;
+- `HDFS_POSITION_QUARANTINE_PATH` — malformed и contract-invalid события;
+- `HDFS_POSITION_CHECKPOINT_PATH` — отдельные checkpoints processed и quarantine sinks.
+
+Дедупликация выполняется по `(vehicle_id, source_timestamp)`, а не по времени polling.
+`speed=0` остаётся валидным значением и получает информационный flag
+`stationary_observation`. Отсутствующие `speed` и `bearing` также сохраняются с quality flags.
+
 ## Static GTFS ingestion
 
 - `GTFS_STATIC_URL`, `GTFS_TLS_VERIFY` и optional `GTFS_CA_BUNDLE`;
