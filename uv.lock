@@ -422,6 +422,12 @@ requires-dist = [{ name = "pydantic", specifier = ">=2.12,<3" }]
 name = "spb-transport-spark"
 version = "0.1.0"
 source = { editable = "pipelines/spark" }
+dependencies = [
+    { name = "httpx" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "httpx", specifier = ">=0.28,<1" }]
 
 [[package]]
 name = "types-protobuf"
