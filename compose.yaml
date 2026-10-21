@@ -241,6 +241,42 @@ services:
     stop_grace_period: 30s
     restart: unless-stopped
 
+  spark-static-gtfs:
+    profiles: ["ingestion"]
+    image: ${SPARK_IMAGE:?SPARK_IMAGE is required}
+    build:
+      context: .
+      dockerfile: pipelines/spark/Dockerfile
+    command:
+      - /opt/spark/bin/spark-submit
+      - --master
+      - spark://spark-master:7077
+      - --deploy-mode
+      - client
+      - /app/pipelines/spark/src/spb_transport_spark/static_gtfs.py
+    environment:
+      PYSPARK_PYTHON: /usr/local/bin/python3.13
+      PYTHONPATH: /app/pipelines/spark/src
+      GTFS_STATIC_URL: ${GTFS_STATIC_URL:?GTFS_STATIC_URL is required}
+      GTFS_TLS_VERIFY: ${GTFS_TLS_VERIFY:?GTFS_TLS_VERIFY is required}
+      GTFS_CA_BUNDLE: ${GTFS_CA_BUNDLE-}
+      GTFS_STATIC_TIMEOUT_SECONDS: ${GTFS_STATIC_TIMEOUT_SECONDS:?GTFS_STATIC_TIMEOUT_SECONDS is required}
+      GTFS_STATIC_RETRY_MAX_ATTEMPTS: ${GTFS_STATIC_RETRY_MAX_ATTEMPTS:?GTFS_STATIC_RETRY_MAX_ATTEMPTS is required}
+      GTFS_STATIC_RETRY_BACKOFF_SECONDS: ${GTFS_STATIC_RETRY_BACKOFF_SECONDS:?GTFS_STATIC_RETRY_BACKOFF_SECONDS is required}
+      GTFS_STATIC_MAX_DOWNLOAD_BYTES: ${GTFS_STATIC_MAX_DOWNLOAD_BYTES:?GTFS_STATIC_MAX_DOWNLOAD_BYTES is required}
+      GTFS_STATIC_MAX_UNCOMPRESSED_BYTES: ${GTFS_STATIC_MAX_UNCOMPRESSED_BYTES:?GTFS_STATIC_MAX_UNCOMPRESSED_BYTES is required}
+      HDFS_STATIC_RAW_PATH: ${HDFS_STATIC_RAW_PATH:?HDFS_STATIC_RAW_PATH is required}
+      HDFS_STATIC_PROCESSED_PATH: ${HDFS_STATIC_PROCESSED_PATH:?HDFS_STATIC_PROCESSED_PATH is required}
+      HDFS_STATIC_STAGING_PATH: ${HDFS_STATIC_STAGING_PATH:?HDFS_STATIC_STAGING_PATH is required}
+    depends_on:
+      hdfs-datanode:
+        condition: service_healthy
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_healthy
+    restart: "no"
+
   cassandra:
     image: ${CASSANDRA_IMAGE:?CASSANDRA_IMAGE is required}
     hostname: cassandra

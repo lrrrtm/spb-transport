@@ -73,3 +73,15 @@ HTTP timeout и retry-параметры обязательны: collector не 
 
 Все пути, topic и интервал обязательны. Kafka connector закреплён в Spark-образе вместе с
 checksum зависимостей: job не скачивает JAR при старте.
+
+## Static GTFS ingestion
+
+- `GTFS_STATIC_URL`, `GTFS_TLS_VERIFY` и optional `GTFS_CA_BUNDLE`;
+- `GTFS_STATIC_TIMEOUT_SECONDS`, `GTFS_STATIC_RETRY_MAX_ATTEMPTS`,
+  `GTFS_STATIC_RETRY_BACKOFF_SECONDS`;
+- `GTFS_STATIC_MAX_DOWNLOAD_BYTES` и `GTFS_STATIC_MAX_UNCOMPRESSED_BYTES`;
+- `HDFS_STATIC_RAW_PATH`, `HDFS_STATIC_PROCESSED_PATH`, `HDFS_STATIC_STAGING_PATH`.
+
+Одноразовый job запускается явно: `docker compose --profile ingestion run --rm spark-static-gtfs`.
+Версия feed равна SHA-256 ZIP; raw ZIP не перезаписывается, производные Parquet можно
+детерминированно перестроить для той же версии.
