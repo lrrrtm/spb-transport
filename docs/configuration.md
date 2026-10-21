@@ -12,6 +12,7 @@
 
 | Переменная | Назначение |
 |---|---|
+| `UV_INSECURE_HOST` | Необязательный список package hosts без TLS-проверки только на этапе локальной сборки Python-образов |
 | `KAFKA_IMAGE` | Закреплённый образ Kafka |
 | `KAFKA_CLUSTER_ID` | Идентификатор локального KRaft cluster |
 | `KAFKA_EXTERNAL_PORT` | Порт Kafka на host |
@@ -32,6 +33,16 @@
 | `CASSANDRA_DATACENTER` | Имя local datacenter |
 | `CASSANDRA_HEAP_NEWSIZE` | Young generation heap |
 | `CASSANDRA_MAX_HEAP_SIZE` | Максимальный JVM heap |
+
+`UV_INSECURE_HOST` по умолчанию пуст. Если локальная сеть мешает `uv` проверить цепочку
+сертификатов PyPI, временный workaround задаётся явно:
+
+```shell
+UV_INSECURE_HOST='pypi.org files.pythonhosted.org' docker compose build
+```
+
+Сборка выводит warning. Эта переменная не управляет HTTP-клиентом GTFS и не должна
+сохраняться в production-конфигурации.
 
 ## Collector
 
@@ -85,3 +96,9 @@ checksum зависимостей: job не скачивает JAR при ста
 Одноразовый job запускается явно: `docker compose --profile ingestion run --rm spark-static-gtfs`.
 Версия feed равна SHA-256 ZIP; raw ZIP не перезаписывается, производные Parquet можно
 детерминированно перестроить для той же версии.
+
+Для текущей проблемы сертификата официального источника локальный запуск допускает явное
+переопределение: `GTFS_TLS_VERIFY=false docker compose --profile ingestion run --rm
+spark-static-gtfs`. При этом job пишет warning; значение в `.env.example` остаётся безопасным —
+`true`. `GTFS_CA_BUNDLE` следует использовать вместо отключения проверки, когда доступна
+доверенная цепочка.

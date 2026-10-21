@@ -1,13 +1,9 @@
 # syntax=docker/dockerfile:1
 FROM ghcr.io/astral-sh/uv:0.10.2 AS uv
-FROM python:3.13-slim-bullseye AS python
-RUN mkdir /python-system-libs && cp /usr/lib/*-linux-gnu/libffi.so.7* /python-system-libs/
 FROM apache/spark:4.0.4-python3
 
 USER root
 COPY --from=uv /uv /uvx /bin/
-COPY --from=python /usr/local /usr/local
-COPY --from=python /python-system-libs/ /usr/local/lib/
 ADD --checksum=sha256:b2f7b3a4fbf292b5bf10bd4dd6af301eded9c9985b16239b407401d66dbc8a25 \
     https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.13/4.0.4/spark-sql-kafka-0-10_2.13-4.0.4.jar /opt/spark/jars/
 ADD --checksum=sha256:ae9817053af94a21992e948269eba1a50d511333cb51462865983abfbeea7f60 \
@@ -31,15 +27,18 @@ COPY pyproject.toml uv.lock ./
 COPY packages/contracts packages/contracts
 COPY apps/collector apps/collector
 COPY pipelines/spark pipelines/spark
-ENV PATH="/usr/local/bin:/app/.venv/bin:$PATH" \
-    LD_LIBRARY_PATH="/usr/local/lib"
+ENV PATH="/app/.venv/bin:$PATH" \
+    UV_PYTHON_INSTALL_DIR="/opt/uv-python" \
+    UV_PYTHON_PREFERENCE="only-managed"
 
-RUN --mount=type=secret,id=build_ca \
-    if [ -s /run/secrets/build_ca ]; then \
-      SSL_CERT_FILE=/run/secrets/build_ca uv sync --python /usr/local/bin/python3.13 --frozen --no-dev \
-        --package spb-transport-spark; \
+ARG UV_INSECURE_HOST
+RUN if [ -n "$UV_INSECURE_HOST" ]; then \
+      echo "WARNING: uv TLS verification is disabled for: $UV_INSECURE_HOST"; \
+      UV_INSECURE_HOST="$UV_INSECURE_HOST" \
+        uv sync --python 3.13 --frozen --no-dev \
+          --package spb-transport-spark; \
     else \
-      uv sync --python /usr/local/bin/python3.13 --frozen --no-dev --package spb-transport-spark; \
+      uv sync --python 3.13 --frozen --no-dev --package spb-transport-spark; \
     fi
 
 USER spark

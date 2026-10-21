@@ -33,6 +33,15 @@ REQUIRED_COLUMNS = {
     "trips.txt": {"route_id", "service_id", "trip_id", "shape_id"},
 }
 
+CSV_READ_OPTIONS = {
+    "header": "true",
+    "encoding": "UTF-8",
+    "quote": '"',
+    "escape": '"',
+    "multiLine": "true",
+    "mode": "FAILFAST",
+}
+
 
 @dataclass(frozen=True)
 class StaticGtfsSettings:
@@ -246,7 +255,7 @@ def ingest(settings: StaticGtfsSettings) -> str:
                     archive.extract(filename, workdir)
                     staging = f"{settings.staging_path}/version={version}/{filename}"
                     _copy_to_hdfs(spark, workdir / filename, staging, overwrite=True)
-                    frame = spark.read.option("header", True).csv(staging)
+                    frame = spark.read.options(**CSV_READ_OPTIONS).csv(staging)
                     cleaned = _clean(dataset, frame)
                     if cleaned.count() != frame.count():
                         raise ValueError(f"{filename} contains invalid required values")
