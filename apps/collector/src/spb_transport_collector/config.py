@@ -47,10 +47,15 @@ class VehicleCollectorSettings(GtfsHttpSettings):
     vehicle_poll_interval_seconds: float = Field(
         gt=0, validation_alias="GTFS_VEHICLE_POLL_INTERVAL_SECONDS"
     )
+    vehicle_trips_poll_interval_seconds: float = Field(
+        gt=0, validation_alias="GTFS_VEHICLE_TRIPS_POLL_INTERVAL_SECONDS"
+    )
+    vehicle_trips_batch_size: int = Field(gt=0, validation_alias="GTFS_VEHICLE_TRIPS_BATCH_SIZE")
     kafka_bootstrap_servers: str = Field(min_length=1, validation_alias="KAFKA_BOOTSTRAP_SERVERS")
     kafka_vehicle_position_topic: str = Field(
         min_length=1, validation_alias="KAFKA_VEHICLE_POSITION_TOPIC"
     )
+    kafka_vehicle_eta_topic: str = Field(min_length=1, validation_alias="KAFKA_VEHICLE_ETA_TOPIC")
     kafka_client_id: str = Field(min_length=1, validation_alias="KAFKA_CLIENT_ID")
     kafka_linger_ms: int = Field(ge=0, validation_alias="KAFKA_LINGER_MS")
     kafka_max_batch_size_bytes: int = Field(gt=0, validation_alias="KAFKA_MAX_BATCH_SIZE_BYTES")

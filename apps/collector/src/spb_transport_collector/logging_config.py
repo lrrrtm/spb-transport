@@ -7,8 +7,11 @@ EXTRA_FIELDS = (
     "delay_seconds",
     "error",
     "event",
+    "failed_batches",
     "invalid_entities",
+    "published_eta_events",
     "published_events",
+    "requested_vehicles",
     "status_code",
 )
 
@@ -33,3 +36,5 @@ def configure_logging() -> None:
     handler = logging.StreamHandler()
     handler.setFormatter(JsonFormatter())
     logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
+    logging.getLogger("aiokafka").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)

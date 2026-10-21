@@ -1,6 +1,6 @@
 # Collector
 
-Пакет содержит централизованный HTTP boundary для официального GTFS Realtime API. На этапе T01 реализованы только конфигурация клиента, TLS/CA, timeout, ограниченные retry с exponential backoff/jitter и lifecycle. Polling и разбор `/vehicle` относятся к T02.
+Пакет содержит централизованный HTTP boundary и два независимых polling-цикла официального GTFS Realtime API: `/vehicle` и batched `/vehicletrips`. Последний успешный набор активных машин из `/vehicle` служит входом для запросов ETA. Пустой `stop_time_update` публикуется как валидный ETA snapshot без прогнозов.
 
 Обязательные environment variables перечислены в `docs/configuration.md` и `.env.example`. TLS verification включена по умолчанию; явное отключение сопровождается warning.
 

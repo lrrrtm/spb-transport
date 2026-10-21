@@ -4,7 +4,7 @@ import signal
 from spb_transport_collector.collector import VehicleCollector
 from spb_transport_collector.config import VehicleCollectorSettings
 from spb_transport_collector.http_client import create_gtfs_http_client
-from spb_transport_collector.kafka import create_position_publisher
+from spb_transport_collector.kafka import create_publisher
 from spb_transport_collector.logging_config import configure_logging
 
 
@@ -18,12 +18,14 @@ async def run() -> None:
 
     async with (
         create_gtfs_http_client(settings) as http_client,
-        create_position_publisher(settings) as publisher,
+        create_publisher(settings) as publisher,
     ):
         collector = VehicleCollector(
             http_client,
             publisher,
             settings.vehicle_poll_interval_seconds,
+            settings.vehicle_trips_poll_interval_seconds,
+            settings.vehicle_trips_batch_size,
         )
         await collector.run(stop_event)
 

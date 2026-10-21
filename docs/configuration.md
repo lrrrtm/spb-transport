@@ -49,14 +49,15 @@
 - `GTFS_RETRY_BACKOFF_MAX_SECONDS`;
 - `GTFS_RETRY_JITTER_SECONDS`;
 - `GTFS_VEHICLE_POLL_INTERVAL_SECONDS`;
+- `GTFS_VEHICLE_TRIPS_POLL_INTERVAL_SECONDS`;
+- `GTFS_VEHICLE_TRIPS_BATCH_SIZE`;
 - `KAFKA_BOOTSTRAP_SERVERS`;
 - `KAFKA_VEHICLE_POSITION_TOPIC`;
+- `KAFKA_VEHICLE_ETA_TOPIC`;
 - `KAFKA_CLIENT_ID`;
 - `KAFKA_LINGER_MS`;
 - `KAFKA_MAX_BATCH_SIZE_BYTES`;
 - `KAFKA_REQUEST_TIMEOUT_MS`;
-- polling interval для `/vehicletrips`, когда начнётся T03;
-- `vehicleIDs` batch size;
 - Kafka bootstrap servers и topic names.
 
 HTTP timeout и retry-параметры обязательны: collector не подставляет их молча. Единственное встроенное безопасное значение — `GTFS_TLS_VERIFY=true`.
