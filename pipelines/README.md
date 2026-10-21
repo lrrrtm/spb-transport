@@ -1,4 +1,6 @@
 # Data pipelines
 
-Здесь появятся static GTFS ingestion и Spark streaming/batch/ML jobs в задачах T04–T17. Pipeline-код не должен импортировать внутренности FastAPI или frontend.
-
+`spark/` содержит Structured Streaming jobs. Raw archive читает только
+`gtfs-raw-response.v1`: валидные envelope сохраняются в Parquet/HDFS, а ошибки
+контракта, checksum/base64 и protobuf decode направляются в отдельный quarantine dataset.
+Pipeline-код не импортирует внутренности FastAPI или frontend.

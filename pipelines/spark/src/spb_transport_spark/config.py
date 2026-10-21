@@ -1,0 +1,36 @@
+import os
+from dataclasses import dataclass
+
+
+def required(name: str) -> str:
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        raise ValueError(f"required environment variable {name} is missing or empty")
+    return value
+
+
+@dataclass(frozen=True)
+class RawArchiveSettings:
+    kafka_bootstrap_servers: str
+    kafka_topic: str
+    starting_offsets: str
+    raw_path: str
+    quarantine_path: str
+    checkpoint_path: str
+    trigger_interval: str
+
+    @classmethod
+    def from_env(cls) -> "RawArchiveSettings":
+        kafka_bootstrap_servers = required("KAFKA_BOOTSTRAP_SERVERS")
+        starting_offsets = required("SPARK_KAFKA_STARTING_OFFSETS")
+        if starting_offsets not in {"earliest", "latest"}:
+            raise ValueError("SPARK_KAFKA_STARTING_OFFSETS must be earliest or latest")
+        return cls(
+            kafka_bootstrap_servers=kafka_bootstrap_servers,
+            kafka_topic=required("KAFKA_RAW_RESPONSE_TOPIC"),
+            starting_offsets=starting_offsets,
+            raw_path=required("HDFS_RAW_REALTIME_PATH"),
+            quarantine_path=required("HDFS_RAW_QUARANTINE_PATH"),
+            checkpoint_path=required("HDFS_RAW_CHECKPOINT_PATH"),
+            trigger_interval=required("SPARK_TRIGGER_INTERVAL"),
+        )

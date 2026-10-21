@@ -12,7 +12,7 @@ lint:
 	uv --system-certs run ruff check .
 
 typecheck:
-	uv --system-certs run mypy apps/collector/src packages/contracts/src tests
+	uv --system-certs run mypy apps/collector/src packages/contracts/src pipelines/spark/src tests
 
 test:
 	uv --system-certs run pytest -n 6

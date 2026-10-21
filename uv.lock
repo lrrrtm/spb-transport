@@ -6,6 +6,7 @@ requires-python = "==3.13.*"
 members = [
     "spb-transport-collector",
     "spb-transport-contracts",
+    "spb-transport-spark",
 ]
 
 [manifest.dependency-groups]
@@ -416,6 +417,11 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "pydantic", specifier = ">=2.12,<3" }]
+
+[[package]]
+name = "spb-transport-spark"
+version = "0.1.0"
+source = { editable = "pipelines/spark" }
 
 [[package]]
 name = "types-protobuf"
