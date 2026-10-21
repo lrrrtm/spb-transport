@@ -2,7 +2,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from spb_transport_spark.static_gtfs import REQUIRED_COLUMNS, validate_archive
+from spb_transport_spark.static_gtfs import CSV_READ_OPTIONS, REQUIRED_COLUMNS, validate_archive
 
 
 def write_feed(
@@ -30,6 +30,11 @@ def test_validate_archive_accepts_confirmed_static_contract(tmp_path: Path) -> N
     write_feed(feed)
 
     validate_archive(feed, max_uncompressed_bytes=10_000)
+
+
+def test_csv_options_support_gtfs_doubled_quotes() -> None:
+    assert CSV_READ_OPTIONS["quote"] == '"'
+    assert CSV_READ_OPTIONS["escape"] == '"'
 
 
 def test_validate_archive_rejects_missing_required_file(tmp_path: Path) -> None:

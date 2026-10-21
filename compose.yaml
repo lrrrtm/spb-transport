@@ -72,6 +72,8 @@ services:
     build:
       context: .
       dockerfile: apps/collector/Dockerfile
+      args:
+        UV_INSECURE_HOST: ${UV_INSECURE_HOST-}
     image: spb-transport-collector:local
     environment:
       GTFS_REALTIME_BASE_URL: ${GTFS_REALTIME_BASE_URL:?GTFS_REALTIME_BASE_URL is required}
@@ -110,14 +112,16 @@ services:
       args:
         HADOOP_IMAGE: ${HADOOP_IMAGE:?HADOOP_IMAGE is required}
     hostname: hdfs-namenode
+    user: root
     command:
       - bash
       - -c
       - >-
+        chown hadoop:users /data/name;
         if [ ! -d /data/name/current ]; then
-          hdfs namenode -format -force -nonInteractive;
+          runuser -u hadoop -- hdfs namenode -format -force -nonInteractive;
         fi;
-        exec hdfs namenode
+        exec runuser -u hadoop -- hdfs namenode
     ports:
       - "${HDFS_NAMENODE_RPC_PORT:?HDFS_NAMENODE_RPC_PORT is required}:9000"
       - "${HDFS_NAMENODE_HTTP_PORT:?HDFS_NAMENODE_HTTP_PORT is required}:9870"
@@ -126,7 +130,11 @@ services:
       - ./infra/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
       - hdfs-namenode-data:/data/name
     healthcheck:
-      test: ["CMD-SHELL", "hdfs dfs -fs hdfs://hdfs-namenode:9000 -ls / >/dev/null"]
+      test:
+        - CMD-SHELL
+        - >-
+          hdfs dfs -fs hdfs://hdfs-namenode:9000 -ls / >/dev/null &&
+          hdfs dfsadmin -fs hdfs://hdfs-namenode:9000 -safemode get | grep -q OFF
       interval: 10s
       timeout: 5s
       retries: 12
@@ -140,7 +148,13 @@ services:
       args:
         HADOOP_IMAGE: ${HADOOP_IMAGE:?HADOOP_IMAGE is required}
     hostname: hdfs-datanode
-    command: ["hdfs", "datanode"]
+    user: root
+    command:
+      - bash
+      - -c
+      - >-
+        chown hadoop:users /data/data;
+        exec runuser -u hadoop -- hdfs datanode
     ports:
       - "${HDFS_DATANODE_HTTP_PORT:?HDFS_DATANODE_HTTP_PORT is required}:9864"
     volumes:
@@ -163,6 +177,8 @@ services:
     build:
       context: .
       dockerfile: pipelines/spark/Dockerfile
+      args:
+        UV_INSECURE_HOST: ${UV_INSECURE_HOST-}
     hostname: spark-master
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
     environment:
@@ -185,6 +201,8 @@ services:
     build:
       context: .
       dockerfile: pipelines/spark/Dockerfile
+      args:
+        UV_INSECURE_HOST: ${UV_INSECURE_HOST-}
     hostname: spark-worker
     command:
       - /opt/spark/bin/spark-class
@@ -212,6 +230,8 @@ services:
     build:
       context: .
       dockerfile: pipelines/spark/Dockerfile
+      args:
+        UV_INSECURE_HOST: ${UV_INSECURE_HOST-}
     command:
       - /opt/spark/bin/spark-submit
       - --master
@@ -220,7 +240,7 @@ services:
       - client
       - /app/pipelines/spark/src/spb_transport_spark/raw_archive.py
     environment:
-      PYSPARK_PYTHON: /usr/local/bin/python3.13
+      PYSPARK_PYTHON: /app/.venv/bin/python
       PYTHONPATH: /app/pipelines/spark/src
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?KAFKA_BOOTSTRAP_SERVERS is required}
       KAFKA_RAW_RESPONSE_TOPIC: ${KAFKA_RAW_RESPONSE_TOPIC:?KAFKA_RAW_RESPONSE_TOPIC is required}
@@ -241,12 +261,53 @@ services:
     stop_grace_period: 30s
     restart: unless-stopped
 
+  spark-position-stream:
+    image: ${SPARK_IMAGE:?SPARK_IMAGE is required}
+    build:
+      context: .
+      dockerfile: pipelines/spark/Dockerfile
+      args:
+        UV_INSECURE_HOST: ${UV_INSECURE_HOST-}
+    command:
+      - /opt/spark/bin/spark-submit
+      - --master
+      - spark://spark-master:7077
+      - --deploy-mode
+      - client
+      - /app/pipelines/spark/src/spb_transport_spark/position_stream.py
+    environment:
+      PYSPARK_PYTHON: /app/.venv/bin/python
+      PYTHONPATH: /app/pipelines/spark/src
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?KAFKA_BOOTSTRAP_SERVERS is required}
+      KAFKA_VEHICLE_POSITION_TOPIC: ${KAFKA_VEHICLE_POSITION_TOPIC:?KAFKA_VEHICLE_POSITION_TOPIC is required}
+      SPARK_KAFKA_STARTING_OFFSETS: ${SPARK_KAFKA_STARTING_OFFSETS:?SPARK_KAFKA_STARTING_OFFSETS is required}
+      SPARK_TRIGGER_INTERVAL: ${SPARK_TRIGGER_INTERVAL:?SPARK_TRIGGER_INTERVAL is required}
+      SPARK_POSITION_WATERMARK: ${SPARK_POSITION_WATERMARK:?SPARK_POSITION_WATERMARK is required}
+      SPARK_POSITION_MAX_SOURCE_AGE_SECONDS: ${SPARK_POSITION_MAX_SOURCE_AGE_SECONDS:?SPARK_POSITION_MAX_SOURCE_AGE_SECONDS is required}
+      SPARK_POSITION_MAX_FUTURE_SKEW_SECONDS: ${SPARK_POSITION_MAX_FUTURE_SKEW_SECONDS:?SPARK_POSITION_MAX_FUTURE_SKEW_SECONDS is required}
+      HDFS_POSITION_PROCESSED_PATH: ${HDFS_POSITION_PROCESSED_PATH:?HDFS_POSITION_PROCESSED_PATH is required}
+      HDFS_POSITION_QUARANTINE_PATH: ${HDFS_POSITION_QUARANTINE_PATH:?HDFS_POSITION_QUARANTINE_PATH is required}
+      HDFS_POSITION_CHECKPOINT_PATH: ${HDFS_POSITION_CHECKPOINT_PATH:?HDFS_POSITION_CHECKPOINT_PATH is required}
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      hdfs-datanode:
+        condition: service_healthy
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_healthy
+    stop_grace_period: 30s
+    restart: unless-stopped
+
   spark-static-gtfs:
     profiles: ["ingestion"]
     image: ${SPARK_IMAGE:?SPARK_IMAGE is required}
     build:
       context: .
       dockerfile: pipelines/spark/Dockerfile
+      args:
+        UV_INSECURE_HOST: ${UV_INSECURE_HOST-}
     command:
       - /opt/spark/bin/spark-submit
       - --master
@@ -255,7 +316,7 @@ services:
       - client
       - /app/pipelines/spark/src/spb_transport_spark/static_gtfs.py
     environment:
-      PYSPARK_PYTHON: /usr/local/bin/python3.13
+      PYSPARK_PYTHON: /app/.venv/bin/python
       PYTHONPATH: /app/pipelines/spark/src
       GTFS_STATIC_URL: ${GTFS_STATIC_URL:?GTFS_STATIC_URL is required}
       GTFS_TLS_VERIFY: ${GTFS_TLS_VERIFY:?GTFS_TLS_VERIFY is required}
