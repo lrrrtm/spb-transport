@@ -2,7 +2,9 @@
 
 Учебный production-ready проект анализа надёжности и эффективности общественного транспорта Санкт-Петербурга по static GTFS и GTFS Realtime.
 
-Сейчас репозиторий находится на этапе bootstrap: зафиксированы архитектурные решения, контракты realtime-событий, проверки качества и локальная data-инфраструктура. Collector, Spark pipelines, API и frontend реализуются отдельными задачами после bootstrap.
+В репозитории зафиксированы архитектурные решения и контракты, работает realtime collector,
+а raw HTTP responses архивируются через Kafka и Spark Structured Streaming в Parquet/HDFS.
+API, frontend и последующая аналитика реализуются отдельными задачами backlog.
 
 ## Быстрый старт bootstrap
 

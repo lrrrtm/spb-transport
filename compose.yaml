@@ -20,6 +20,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_MESSAGE_MAX_BYTES: ${KAFKA_MESSAGE_MAX_BYTES:?KAFKA_MESSAGE_MAX_BYTES is required}
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
@@ -40,6 +41,8 @@ services:
       VEHICLE_POSITION_PARTITIONS: ${KAFKA_VEHICLE_POSITION_PARTITIONS:?KAFKA_VEHICLE_POSITION_PARTITIONS is required}
       VEHICLE_ETA_TOPIC: ${KAFKA_VEHICLE_ETA_TOPIC:?KAFKA_VEHICLE_ETA_TOPIC is required}
       VEHICLE_ETA_PARTITIONS: ${KAFKA_VEHICLE_ETA_PARTITIONS:?KAFKA_VEHICLE_ETA_PARTITIONS is required}
+      RAW_RESPONSE_TOPIC: ${KAFKA_RAW_RESPONSE_TOPIC:?KAFKA_RAW_RESPONSE_TOPIC is required}
+      RAW_RESPONSE_PARTITIONS: ${KAFKA_RAW_RESPONSE_PARTITIONS:?KAFKA_RAW_RESPONSE_PARTITIONS is required}
       REPLICATION_FACTOR: ${KAFKA_REPLICATION_FACTOR:?KAFKA_REPLICATION_FACTOR is required}
     command:
       - bash
@@ -56,6 +59,12 @@ services:
         --create --if-not-exists
         --topic "$${VEHICLE_ETA_TOPIC}"
         --partitions "$${VEHICLE_ETA_PARTITIONS}"
+        --replication-factor "$${REPLICATION_FACTOR}" &&
+        /opt/kafka/bin/kafka-topics.sh
+        --bootstrap-server kafka:29092
+        --create --if-not-exists
+        --topic "$${RAW_RESPONSE_TOPIC}"
+        --partitions "$${RAW_RESPONSE_PARTITIONS}"
         --replication-factor "$${REPLICATION_FACTOR}"
     restart: "no"
 
@@ -82,9 +91,11 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?KAFKA_BOOTSTRAP_SERVERS is required}
       KAFKA_VEHICLE_POSITION_TOPIC: ${KAFKA_VEHICLE_POSITION_TOPIC:?KAFKA_VEHICLE_POSITION_TOPIC is required}
       KAFKA_VEHICLE_ETA_TOPIC: ${KAFKA_VEHICLE_ETA_TOPIC:?KAFKA_VEHICLE_ETA_TOPIC is required}
+      KAFKA_RAW_RESPONSE_TOPIC: ${KAFKA_RAW_RESPONSE_TOPIC:?KAFKA_RAW_RESPONSE_TOPIC is required}
       KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID:?KAFKA_CLIENT_ID is required}
       KAFKA_LINGER_MS: ${KAFKA_LINGER_MS:?KAFKA_LINGER_MS is required}
       KAFKA_MAX_BATCH_SIZE_BYTES: ${KAFKA_MAX_BATCH_SIZE_BYTES:?KAFKA_MAX_BATCH_SIZE_BYTES is required}
+      KAFKA_MAX_REQUEST_SIZE_BYTES: ${KAFKA_MAX_REQUEST_SIZE_BYTES:?KAFKA_MAX_REQUEST_SIZE_BYTES is required}
       KAFKA_REQUEST_TIMEOUT_MS: ${KAFKA_REQUEST_TIMEOUT_MS:?KAFKA_REQUEST_TIMEOUT_MS is required}
     depends_on:
       kafka-init:
@@ -149,6 +160,9 @@ services:
 
   spark-master:
     image: ${SPARK_IMAGE:?SPARK_IMAGE is required}
+    build:
+      context: .
+      dockerfile: pipelines/spark/Dockerfile
     hostname: spark-master
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
     environment:
@@ -168,6 +182,9 @@ services:
 
   spark-worker:
     image: ${SPARK_IMAGE:?SPARK_IMAGE is required}
+    build:
+      context: .
+      dockerfile: pipelines/spark/Dockerfile
     hostname: spark-worker
     command:
       - /opt/spark/bin/spark-class
@@ -188,6 +205,40 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
+    restart: unless-stopped
+
+  spark-raw-archive:
+    image: ${SPARK_IMAGE:?SPARK_IMAGE is required}
+    build:
+      context: .
+      dockerfile: pipelines/spark/Dockerfile
+    command:
+      - /opt/spark/bin/spark-submit
+      - --master
+      - spark://spark-master:7077
+      - --deploy-mode
+      - client
+      - /app/pipelines/spark/src/spb_transport_spark/raw_archive.py
+    environment:
+      PYSPARK_PYTHON: /usr/local/bin/python3.13
+      PYTHONPATH: /app/pipelines/spark/src
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?KAFKA_BOOTSTRAP_SERVERS is required}
+      KAFKA_RAW_RESPONSE_TOPIC: ${KAFKA_RAW_RESPONSE_TOPIC:?KAFKA_RAW_RESPONSE_TOPIC is required}
+      SPARK_KAFKA_STARTING_OFFSETS: ${SPARK_KAFKA_STARTING_OFFSETS:?SPARK_KAFKA_STARTING_OFFSETS is required}
+      SPARK_TRIGGER_INTERVAL: ${SPARK_TRIGGER_INTERVAL:?SPARK_TRIGGER_INTERVAL is required}
+      HDFS_RAW_REALTIME_PATH: ${HDFS_RAW_REALTIME_PATH:?HDFS_RAW_REALTIME_PATH is required}
+      HDFS_RAW_QUARANTINE_PATH: ${HDFS_RAW_QUARANTINE_PATH:?HDFS_RAW_QUARANTINE_PATH is required}
+      HDFS_RAW_CHECKPOINT_PATH: ${HDFS_RAW_CHECKPOINT_PATH:?HDFS_RAW_CHECKPOINT_PATH is required}
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      hdfs-datanode:
+        condition: service_healthy
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_healthy
+    stop_grace_period: 30s
     restart: unless-stopped
 
   cassandra:

@@ -51,8 +51,13 @@ def test_broken_feed_does_not_stop_following_poll_cycle() -> None:
 
     producer: Any = AsyncMock()
 
+    publications = 0
+
     async def stop_after_publish(*args: object, **kwargs: object) -> None:
-        stop_event.set()
+        nonlocal publications
+        publications += 1
+        if publications == 3:
+            stop_event.set()
 
     producer.send_and_wait.side_effect = stop_after_publish
     http_client = httpx.AsyncClient(
@@ -63,7 +68,7 @@ def test_broken_feed_does_not_stop_following_poll_cycle() -> None:
         http_client,
         RetryPolicy(1, 0, 0, 0),
     )
-    publisher = KafkaPublisher(producer, "vehicle-position.v1", "vehicle-eta.v1")
+    publisher = KafkaPublisher(producer, "vehicle-position.v1", "vehicle-eta.v1", "raw.v1")
     collector = VehicleCollector(
         client,
         publisher,
@@ -79,7 +84,7 @@ def test_broken_feed_does_not_stop_following_poll_cycle() -> None:
     asyncio.run(scenario())
 
     assert requests == 2
-    producer.send_and_wait.assert_awaited_once()
+    assert producer.send_and_wait.await_count == 3
 
 
 def test_vehicle_trips_requests_are_split_into_configured_batches() -> None:
@@ -100,7 +105,7 @@ def test_vehicle_trips_requests_are_split_into_configured_batches() -> None:
         transport=httpx.MockTransport(handler),
     )
     client = GtfsHttpClient(http_client, RetryPolicy(1, 0, 0, 0))
-    publisher = KafkaPublisher(producer, "vehicle-position.v1", "vehicle-eta.v1")
+    publisher = KafkaPublisher(producer, "vehicle-position.v1", "vehicle-eta.v1", "raw.v1")
     collector = VehicleCollector(client, publisher, 10, 30, 2)
 
     async def scenario() -> int:
@@ -137,7 +142,7 @@ def test_failed_vehicle_trips_batch_does_not_skip_later_batches() -> None:
     client = GtfsHttpClient(http_client, RetryPolicy(1, 0, 0, 0))
     collector = VehicleCollector(
         client,
-        KafkaPublisher(producer, "vehicle-position.v1", "vehicle-eta.v1"),
+        KafkaPublisher(producer, "vehicle-position.v1", "vehicle-eta.v1", "raw.v1"),
         10,
         30,
         1,
@@ -152,3 +157,11 @@ def test_failed_vehicle_trips_batch_does_not_skip_later_batches() -> None:
 
     assert eta_requests == 2
     assert published == 1
+
+    raw_values = [
+        call.kwargs["value"]
+        for call in producer.send_and_wait.await_args_list
+        if call.args[0] == "raw.v1"
+    ]
+    assert len(raw_values) == 3
+    assert b'"decode_error":"DecodeError"' in raw_values[1]

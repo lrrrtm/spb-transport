@@ -15,6 +15,7 @@
 | `KAFKA_IMAGE` | Закреплённый образ Kafka |
 | `KAFKA_CLUSTER_ID` | Идентификатор локального KRaft cluster |
 | `KAFKA_EXTERNAL_PORT` | Порт Kafka на host |
+| `KAFKA_MESSAGE_MAX_BYTES` | Максимальный размер raw response в Kafka broker |
 | `HADOOP_IMAGE` | Закреплённый образ Hadoop |
 | `HDFS_NAMENODE_RPC_PORT` | NameNode RPC на host |
 | `HDFS_NAMENODE_HTTP_PORT` | NameNode UI на host |
@@ -32,9 +33,7 @@
 | `CASSANDRA_HEAP_NEWSIZE` | Young generation heap |
 | `CASSANDRA_MAX_HEAP_SIZE` | Максимальный JVM heap |
 
-## Будущая конфигурация collector
-
-До T01 значения только документируют согласованный интерфейс:
+## Collector
 
 - `GTFS_STATIC_URL`;
 - `GTFS_REALTIME_BASE_URL`;
@@ -54,10 +53,23 @@
 - `KAFKA_BOOTSTRAP_SERVERS`;
 - `KAFKA_VEHICLE_POSITION_TOPIC`;
 - `KAFKA_VEHICLE_ETA_TOPIC`;
+- `KAFKA_RAW_RESPONSE_TOPIC`;
 - `KAFKA_CLIENT_ID`;
 - `KAFKA_LINGER_MS`;
 - `KAFKA_MAX_BATCH_SIZE_BYTES`;
+- `KAFKA_MAX_REQUEST_SIZE_BYTES`;
 - `KAFKA_REQUEST_TIMEOUT_MS`;
 - Kafka bootstrap servers и topic names.
 
 HTTP timeout и retry-параметры обязательны: collector не подставляет их молча. Единственное встроенное безопасное значение — `GTFS_TLS_VERIFY=true`.
+
+## Raw archive Spark job
+
+- `SPARK_KAFKA_STARTING_OFFSETS` — только `earliest` или `latest`;
+- `SPARK_TRIGGER_INTERVAL` — интервал micro-batch в синтаксисе Spark;
+- `HDFS_RAW_REALTIME_PATH` — Parquet-архив валидных raw envelope;
+- `HDFS_RAW_QUARANTINE_PATH` — Parquet для ошибок контракта, checksum и protobuf;
+- `HDFS_RAW_CHECKPOINT_PATH` — отдельные checkpoint каталоги обоих sinks.
+
+Все пути, topic и интервал обязательны. Kafka connector закреплён в Spark-образе вместе с
+checksum зависимостей: job не скачивает JAR при старте.

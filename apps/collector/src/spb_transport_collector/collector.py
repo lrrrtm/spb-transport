@@ -6,10 +6,12 @@ from datetime import UTC, datetime
 import httpx
 from aiokafka.errors import KafkaError  # type: ignore[import-untyped]
 from google.protobuf.message import DecodeError
+from spb_transport_contracts import RawEndpoint
 
 from spb_transport_collector.eta_feed import parse_eta_feed
 from spb_transport_collector.http_client import GtfsHttpClient
 from spb_transport_collector.kafka import KafkaPublisher
+from spb_transport_collector.raw_response import build_raw_response
 from spb_transport_collector.vehicle_feed import parse_vehicle_feed
 
 logger = logging.getLogger(__name__)
@@ -32,8 +34,25 @@ class VehicleCollector:
         self._active_vehicle_ids: tuple[str, ...] = ()
 
     async def collect_positions_once(self) -> int:
+        requested_at = datetime.now(UTC)
         response = await self._http_client.get("vehicle")
-        result = parse_vehicle_feed(response.content, datetime.now(UTC))
+        collected_at = datetime.now(UTC)
+        try:
+            result = parse_vehicle_feed(response.content, collected_at)
+        except DecodeError as error:
+            await self._publisher.publish_raw(
+                build_raw_response(
+                    response,
+                    RawEndpoint.VEHICLE,
+                    requested_at,
+                    collected_at,
+                    decode_error=type(error).__name__,
+                )
+            )
+            raise
+        await self._publisher.publish_raw(
+            build_raw_response(response, RawEndpoint.VEHICLE, requested_at, collected_at)
+        )
         await self._publisher.publish_positions(result.events)
         self._active_vehicle_ids = tuple(sorted({event.vehicle_id for event in result.events}))
         logger.info(
@@ -55,8 +74,27 @@ class VehicleCollector:
             vehicle_ids = self._active_vehicle_ids[start : start + self._vehicle_trips_batch_size]
             params = httpx.QueryParams([("vehicleIDs", vehicle_id) for vehicle_id in vehicle_ids])
             try:
+                requested_at = datetime.now(UTC)
                 response = await self._http_client.get("vehicletrips", params=params)
-                result = parse_eta_feed(response.content, datetime.now(UTC))
+                collected_at = datetime.now(UTC)
+                try:
+                    result = parse_eta_feed(response.content, collected_at)
+                except DecodeError as error:
+                    await self._publisher.publish_raw(
+                        build_raw_response(
+                            response,
+                            RawEndpoint.VEHICLE_TRIPS,
+                            requested_at,
+                            collected_at,
+                            decode_error=type(error).__name__,
+                        )
+                    )
+                    raise
+                await self._publisher.publish_raw(
+                    build_raw_response(
+                        response, RawEndpoint.VEHICLE_TRIPS, requested_at, collected_at
+                    )
+                )
             except (DecodeError, httpx.HTTPError) as error:
                 failed_batches += 1
                 logger.error(
