@@ -9,6 +9,13 @@ def required(name: str) -> str:
     return value
 
 
+def required_starting_offsets() -> str:
+    value = required("SPARK_KAFKA_STARTING_OFFSETS")
+    if value not in {"earliest", "latest"}:
+        raise ValueError("SPARK_KAFKA_STARTING_OFFSETS must be earliest or latest")
+    return value
+
+
 @dataclass(frozen=True)
 class RawArchiveSettings:
     kafka_bootstrap_servers: str
@@ -22,9 +29,7 @@ class RawArchiveSettings:
     @classmethod
     def from_env(cls) -> "RawArchiveSettings":
         kafka_bootstrap_servers = required("KAFKA_BOOTSTRAP_SERVERS")
-        starting_offsets = required("SPARK_KAFKA_STARTING_OFFSETS")
-        if starting_offsets not in {"earliest", "latest"}:
-            raise ValueError("SPARK_KAFKA_STARTING_OFFSETS must be earliest or latest")
+        starting_offsets = required_starting_offsets()
         return cls(
             kafka_bootstrap_servers=kafka_bootstrap_servers,
             kafka_topic=required("KAFKA_RAW_RESPONSE_TOPIC"),
@@ -62,11 +67,10 @@ class PositionStreamSettings:
 
     @classmethod
     def from_env(cls) -> "PositionStreamSettings":
-        starting_offsets = required("SPARK_KAFKA_STARTING_OFFSETS")
-        if starting_offsets not in {"earliest", "latest"}:
-            raise ValueError("SPARK_KAFKA_STARTING_OFFSETS must be earliest or latest")
+        kafka_bootstrap_servers = required("KAFKA_BOOTSTRAP_SERVERS")
+        starting_offsets = required_starting_offsets()
         return cls(
-            kafka_bootstrap_servers=required("KAFKA_BOOTSTRAP_SERVERS"),
+            kafka_bootstrap_servers=kafka_bootstrap_servers,
             kafka_topic=required("KAFKA_VEHICLE_POSITION_TOPIC"),
             starting_offsets=starting_offsets,
             trigger_interval=required("SPARK_TRIGGER_INTERVAL"),
@@ -76,4 +80,31 @@ class PositionStreamSettings:
             processed_path=required("HDFS_POSITION_PROCESSED_PATH"),
             quarantine_path=required("HDFS_POSITION_QUARANTINE_PATH"),
             checkpoint_path=required("HDFS_POSITION_CHECKPOINT_PATH"),
+        )
+
+
+@dataclass(frozen=True)
+class EtaStreamSettings:
+    kafka_bootstrap_servers: str
+    kafka_topic: str
+    starting_offsets: str
+    trigger_interval: str
+    watermark: str
+    history_path: str
+    quarantine_path: str
+    checkpoint_path: str
+
+    @classmethod
+    def from_env(cls) -> "EtaStreamSettings":
+        kafka_bootstrap_servers = required("KAFKA_BOOTSTRAP_SERVERS")
+        starting_offsets = required_starting_offsets()
+        return cls(
+            kafka_bootstrap_servers=kafka_bootstrap_servers,
+            kafka_topic=required("KAFKA_VEHICLE_ETA_TOPIC"),
+            starting_offsets=starting_offsets,
+            trigger_interval=required("SPARK_TRIGGER_INTERVAL"),
+            watermark=required("SPARK_ETA_WATERMARK"),
+            history_path=required("HDFS_ETA_HISTORY_PATH"),
+            quarantine_path=required("HDFS_ETA_QUARANTINE_PATH"),
+            checkpoint_path=required("HDFS_ETA_CHECKPOINT_PATH"),
         )
