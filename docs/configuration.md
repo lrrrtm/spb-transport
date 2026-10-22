@@ -99,6 +99,19 @@ checksum зависимостей: job не скачивает JAR при ста
 `speed=0` остаётся валидным значением и получает информационный flag
 `stationary_observation`. Отсутствующие `speed` и `bearing` также сохраняются с quality flags.
 
+## Vehicle ETA Spark job
+
+- `KAFKA_VEHICLE_ETA_TOPIC` — входной topic ETA snapshots;
+- `SPARK_ETA_WATERMARK` — bounded state для content deduplication по `event_id`;
+- `HDFS_ETA_HISTORY_PATH` — история уникальных ETA snapshots;
+- `HDFS_ETA_QUARANTINE_PATH` — malformed и contract-invalid события;
+- `HDFS_ETA_CHECKPOINT_PATH` — отдельные checkpoints history и quarantine sinks.
+
+Пустой `forecasts=[]` сохраняется как успешный snapshot с `eta_status=empty`. Состояние
+`missing` не создаётся искусственно: это отсутствие snapshot для машины в заданном временном
+окне и вычисляется позднее по истории. `forecast_rank` валидируется только как порядок
+элементов payload и не интерпретируется как GTFS `stop_sequence`.
+
 ## Static GTFS ingestion
 
 - `GTFS_STATIC_URL`, `GTFS_TLS_VERIFY` и optional `GTFS_CA_BUNDLE`;
