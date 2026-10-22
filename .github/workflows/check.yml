@@ -19,8 +19,8 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff format --check .
       - run: uv run ruff check .
-      - run: uv run mypy apps/collector/src packages/contracts/src tests
-      - run: uv run pytest
+      - run: uv run mypy apps/collector/src packages/contracts/src pipelines/spark/src tests
+      - run: uv run pytest -n 6
 
   compose:
     runs-on: ubuntu-latest
