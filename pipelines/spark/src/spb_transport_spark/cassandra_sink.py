@@ -1,11 +1,70 @@
-from typing import Any
+from __future__ import annotations
 
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as F
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from spb_transport_spark.config import CassandraSettings
 
+if TYPE_CHECKING:
+    from pyspark.sql import DataFrame
+
 CASSANDRA_FORMAT = "org.apache.spark.sql.cassandra"
+WRITETIME_COLUMN = "writetime_us"
+
+_POSITION_COLUMNS = (
+    "vehicle_id",
+    "route_id",
+    "event_id",
+    "source_timestamp",
+    "collected_at",
+    "latitude",
+    "longitude",
+    "bearing",
+    "speed",
+    "label",
+    "license_plate",
+    "quality_flags",
+    "has_quality_flags",
+)
+
+
+@dataclass(frozen=True)
+class ServingTable:
+    """Columns written to one Cassandra serving table.
+
+    `expiring` tables are operational latest views and receive the mandatory latest TTL.
+    History tables never expire: their primary keys are deterministic, so replay is idempotent.
+    """
+
+    name: str
+    columns: tuple[str, ...]
+    expiring: bool
+
+
+POSITION_TABLES = (
+    ServingTable("vehicle_latest_by_vehicle", _POSITION_COLUMNS, expiring=True),
+    ServingTable("vehicles_latest_by_route", _POSITION_COLUMNS, expiring=True),
+    ServingTable(
+        "vehicle_positions_by_vehicle_day", ("event_date", *_POSITION_COLUMNS), expiring=False
+    ),
+)
+
+ETA_TABLES = (
+    ServingTable(
+        "eta_history_by_vehicle_day",
+        (
+            "vehicle_id",
+            "collected_date",
+            "collected_at",
+            "event_id",
+            "route_id",
+            "forecast_count",
+            "eta_status",
+            "forecasts_json",
+        ),
+        expiring=False,
+    ),
+)
 
 
 def configure_cassandra(builder: Any, settings: CassandraSettings) -> Any:
@@ -21,59 +80,40 @@ def configure_cassandra(builder: Any, settings: CassandraSettings) -> Any:
     return builder
 
 
-def _write(
-    frame: DataFrame, settings: CassandraSettings, table: str, *, expiring: bool = False
-) -> None:
+def _write(frame: DataFrame, settings: CassandraSettings, table: ServingTable) -> None:
     writer = (
-        frame.write.format(CASSANDRA_FORMAT)
+        frame.select(*table.columns, WRITETIME_COLUMN)
+        .write.format(CASSANDRA_FORMAT)
         .option("keyspace", settings.keyspace)
-        .option("table", table)
-        .option("writetime", "writetime_us")
+        .option("table", table.name)
+        .option("writetime", WRITETIME_COLUMN)
     )
-    if expiring:
+    if table.expiring:
         writer = writer.option("ttl", str(settings.latest_ttl_seconds))
     writer.mode("append").save()
 
 
-def write_positions(frame: DataFrame, settings: CassandraSettings) -> None:
-    columns = [
-        "vehicle_id",
-        "route_id",
-        "event_id",
-        "source_timestamp",
-        "collected_at",
-        "latitude",
-        "longitude",
-        "bearing",
-        "speed",
-        "label",
-        "license_plate",
-        "quality_flags",
-        "has_quality_flags",
-        "writetime_us",
-    ]
-    rows = frame.withColumn(
-        "writetime_us", (F.col("source_timestamp").cast("double") * 1_000_000).cast("long")
+def _with_writetime(frame: DataFrame, event_time_column: str) -> DataFrame:
+    from pyspark.sql import functions as F
+
+    return frame.withColumn(
+        WRITETIME_COLUMN, (F.col(event_time_column).cast("double") * 1_000_000).cast("long")
     )
-    _write(rows.select(*columns), settings, "vehicle_latest_by_vehicle", expiring=True)
-    _write(rows.select(*columns), settings, "vehicles_latest_by_route", expiring=True)
-    _write(rows.select("event_date", *columns), settings, "vehicle_positions_by_vehicle_day")
+
+
+def write_positions(frame: DataFrame, settings: CassandraSettings) -> None:
+    # Source observation time is the Cassandra writetime: replaying an older event
+    # cannot overwrite a newer latest state.
+    rows = _with_writetime(frame, "source_timestamp")
+    for table in POSITION_TABLES:
+        _write(rows, settings, table)
 
 
 def write_eta_history(frame: DataFrame, settings: CassandraSettings) -> None:
-    rows = (
-        frame.withColumn("forecasts_json", F.to_json("forecasts"))
-        .withColumn("writetime_us", (F.col("collected_at").cast("double") * 1_000_000).cast("long"))
-        .select(
-            "vehicle_id",
-            "collected_date",
-            "collected_at",
-            "event_id",
-            "route_id",
-            "forecast_count",
-            "eta_status",
-            "forecasts_json",
-            "writetime_us",
-        )
+    from pyspark.sql import functions as F
+
+    rows = _with_writetime(
+        frame.withColumn("forecasts_json", F.to_json("forecasts")), "collected_at"
     )
-    _write(rows, settings, "eta_history_by_vehicle_day")
+    for table in ETA_TABLES:
+        _write(rows, settings, table)
