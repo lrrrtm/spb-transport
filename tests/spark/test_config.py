@@ -1,5 +1,24 @@
 from pytest import MonkeyPatch, raises
-from spb_transport_spark.config import EtaStreamSettings, PositionStreamSettings, RawArchiveSettings
+from spb_transport_spark.config import (
+    CassandraSettings,
+    EtaStreamSettings,
+    PositionStreamSettings,
+    RawArchiveSettings,
+)
+
+
+def _set_cassandra_environment(monkeypatch: MonkeyPatch) -> None:
+    values = {
+        "CASSANDRA_HOST": "cassandra",
+        "CASSANDRA_NATIVE_PORT": "9042",
+        "CASSANDRA_DATACENTER": "datacenter1",
+        "CASSANDRA_KEYSPACE": "spb_transport",
+        "CASSANDRA_LATEST_TTL_SECONDS": "120",
+        "CASSANDRA_USERNAME": "",
+        "CASSANDRA_PASSWORD": "",
+    }
+    for name, value in values.items():
+        monkeypatch.setenv(name, value)
 
 
 def test_raw_archive_settings_require_every_value(monkeypatch: MonkeyPatch) -> None:
@@ -27,6 +46,7 @@ def test_raw_archive_settings_reject_invalid_starting_offsets(monkeypatch: Monke
 
 
 def _set_position_environment(monkeypatch: MonkeyPatch) -> None:
+    _set_cassandra_environment(monkeypatch)
     values = {
         "KAFKA_BOOTSTRAP_SERVERS": "kafka:29092",
         "KAFKA_VEHICLE_POSITION_TOPIC": "vehicle-position.v1",
@@ -64,6 +84,7 @@ def test_position_stream_settings_reject_non_positive_threshold(
 
 
 def test_eta_stream_settings_load_explicit_values(monkeypatch: MonkeyPatch) -> None:
+    _set_cassandra_environment(monkeypatch)
     values = {
         "KAFKA_BOOTSTRAP_SERVERS": "kafka:29092",
         "KAFKA_VEHICLE_ETA_TOPIC": "vehicle-eta.v1",
@@ -81,3 +102,11 @@ def test_eta_stream_settings_load_explicit_values(monkeypatch: MonkeyPatch) -> N
 
     assert settings.kafka_topic == "vehicle-eta.v1"
     assert settings.watermark == "1 hour"
+
+
+def test_cassandra_credentials_must_be_set_together(monkeypatch: MonkeyPatch) -> None:
+    _set_cassandra_environment(monkeypatch)
+    monkeypatch.setenv("CASSANDRA_USERNAME", "app")
+
+    with raises(ValueError, match="must be set together"):
+        CassandraSettings.from_env()

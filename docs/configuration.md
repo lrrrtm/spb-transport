@@ -27,10 +27,19 @@
 | `SPARK_WORKER_WEB_PORT` | Spark worker UI на host |
 | `SPARK_WORKER_CORES` | Локальный лимит cores worker |
 | `SPARK_WORKER_MEMORY` | Локальный лимит памяти worker |
+| `SPARK_EXECUTOR_CORES` | Число cores одного job; локально оставляет ресурсы параллельным streaming jobs |
+| `SPARK_MAX_CORES_PER_JOB` | Общий лимит cores одного Spark application |
+| `SPARK_SHUFFLE_PARTITIONS` | Число shuffle partitions для micro-batch jobs |
 | `CASSANDRA_IMAGE` | Закреплённый образ Cassandra |
 | `CASSANDRA_PORT` | Native transport port на host |
+| `CASSANDRA_NATIVE_PORT` | Native transport port внутри Compose-сети |
 | `CASSANDRA_CLUSTER_NAME` | Имя локального cluster |
 | `CASSANDRA_DATACENTER` | Имя local datacenter |
+| `CASSANDRA_HOST` | Адрес Cassandra для Spark jobs |
+| `CASSANDRA_KEYSPACE` | Keyspace serving-слоя; lowercase CQL identifier |
+| `CASSANDRA_REPLICATION_FACTOR` | Replication factor для инициализации keyspace |
+| `CASSANDRA_LATEST_TTL_SECONDS` | TTL operational latest-строк; ограничивает stale route membership |
+| `CASSANDRA_USERNAME`, `CASSANDRA_PASSWORD` | Необязательная пара credentials; задаются только вместе |
 | `CASSANDRA_HEAP_NEWSIZE` | Young generation heap |
 | `CASSANDRA_MAX_HEAP_SIZE` | Максимальный JVM heap |
 
@@ -93,11 +102,15 @@ checksum зависимостей: job не скачивает JAR при ста
 - `SPARK_POSITION_MAX_FUTURE_SKEW_SECONDS` — порог flag `future_source_timestamp`;
 - `HDFS_POSITION_PROCESSED_PATH` — валидные дедуплицированные позиции;
 - `HDFS_POSITION_QUARANTINE_PATH` — malformed и contract-invalid события;
-- `HDFS_POSITION_CHECKPOINT_PATH` — отдельные checkpoints processed и quarantine sinks.
+- `HDFS_POSITION_CHECKPOINT_PATH` — отдельные checkpoints processed, quarantine и Cassandra sinks.
 
 Дедупликация выполняется по `(vehicle_id, source_timestamp)`, а не по времени polling.
 `speed=0` остаётся валидным значением и получает информационный flag
 `stationary_observation`. Отсутствующие `speed` и `bearing` также сохраняются с quality flags.
+В Cassandra job поддерживает lookup последнего состояния по машине и по маршруту, а также
+дневную историю машины. Для latest-таблиц используется обязательный TTL: это ограничивает
+жизнь старой записи при смене маршрута или исчезновении машины. API всё равно должен применять
+freshness cutoff по `source_timestamp`, а не считать наличие строки доказательством активности.
 
 ## Vehicle ETA Spark job
 
@@ -105,12 +118,33 @@ checksum зависимостей: job не скачивает JAR при ста
 - `SPARK_ETA_WATERMARK` — bounded state для content deduplication по `event_id`;
 - `HDFS_ETA_HISTORY_PATH` — история уникальных ETA snapshots;
 - `HDFS_ETA_QUARANTINE_PATH` — malformed и contract-invalid события;
-- `HDFS_ETA_CHECKPOINT_PATH` — отдельные checkpoints history и quarantine sinks.
+- `HDFS_ETA_CHECKPOINT_PATH` — отдельные checkpoints history, quarantine и Cassandra sinks.
 
 Пустой `forecasts=[]` сохраняется как успешный snapshot с `eta_status=empty`. Состояние
 `missing` не создаётся искусственно: это отсутствие snapshot для машины в заданном временном
 окне и вычисляется позднее по истории. `forecast_rank` валидируется только как порядок
 элементов payload и не интерпретируется как GTFS `stop_sequence`.
+
+## Cassandra serving layer
+
+Schema bootstrap создаёт только таблицы, для которых уже есть конкретные query patterns:
+
+| Таблица | Запрос | Граница partition |
+|---|---|---|
+| `vehicle_latest_by_vehicle` | Последнее состояние одной машины | Одна строка на `vehicle_id` |
+| `vehicles_latest_by_route` | Текущая карта машин маршрута | Один маршрут |
+| `vehicle_positions_by_vehicle_day` | История машины за день | `(vehicle_id, event_date)` |
+| `eta_history_by_vehicle_day` | История ETA машины за день | `(vehicle_id, collected_date)` |
+
+При polling раз в 10 секунд position partition содержит не более 8 640 наблюдений в день до
+дедупликации; при ETA polling раз в 30 секунд — не более 2 880 snapshots. Это ограничивает
+размер partition без произвольного retention history. HDFS остаётся каноническим raw/processed
+архивом, Cassandra — query-oriented serving storage.
+
+Повторная запись безопасна: history primary keys детерминированы, а latest-записи используют
+source event time как Cassandra writetime. Поэтому более старое повторно обработанное событие не
+перезаписывает новое состояние. Пустые credentials разрешены в локальном no-auth Compose;
+если задано одно из двух значений, конфигурация завершается ошибкой.
 
 ## Static GTFS ingestion
 

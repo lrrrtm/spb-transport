@@ -3,6 +3,7 @@ from pyspark.sql import functions as F
 from pyspark.sql.streaming.query import StreamingQuery
 from pyspark.sql.types import DoubleType, StringType, StructField, StructType, TimestampType
 
+from spb_transport_spark.cassandra_sink import configure_cassandra, write_positions
 from spb_transport_spark.config import PositionStreamSettings
 
 POSITION_SCHEMA = StructType(
@@ -83,8 +84,12 @@ def classify(source: DataFrame, settings: PositionStreamSettings) -> DataFrame:
     )
 
 
-def start(settings: PositionStreamSettings) -> tuple[StreamingQuery, StreamingQuery]:
-    spark = SparkSession.builder.appName("vehicle-position-stream").getOrCreate()
+def start(
+    settings: PositionStreamSettings,
+) -> tuple[StreamingQuery, StreamingQuery, StreamingQuery]:
+    spark = configure_cassandra(
+        SparkSession.builder.appName("vehicle-position-stream"), settings.cassandra
+    ).getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
     source = (
         spark.readStream.format("kafka")
@@ -120,7 +125,15 @@ def start(settings: PositionStreamSettings) -> tuple[StreamingQuery, StreamingQu
         .trigger(processingTime=settings.trigger_interval)
         .start()
     )
-    return processed_query, quarantine_query
+    cassandra_query = (
+        valid.writeStream.foreachBatch(
+            lambda frame, _batch_id: write_positions(frame, settings.cassandra)
+        )
+        .option("checkpointLocation", f"{settings.checkpoint_path}/cassandra")
+        .trigger(processingTime=settings.trigger_interval)
+        .start()
+    )
+    return processed_query, quarantine_query, cassandra_query
 
 
 def main() -> None:

@@ -238,6 +238,12 @@ services:
       - spark://spark-master:7077
       - --deploy-mode
       - client
+      - --executor-cores
+      - ${SPARK_EXECUTOR_CORES:?SPARK_EXECUTOR_CORES is required}
+      - --conf
+      - spark.cores.max=${SPARK_MAX_CORES_PER_JOB:?SPARK_MAX_CORES_PER_JOB is required}
+      - --conf
+      - spark.sql.shuffle.partitions=${SPARK_SHUFFLE_PARTITIONS:?SPARK_SHUFFLE_PARTITIONS is required}
       - /app/pipelines/spark/src/spb_transport_spark/raw_archive.py
     environment:
       PYSPARK_PYTHON: /app/.venv/bin/python
@@ -274,6 +280,12 @@ services:
       - spark://spark-master:7077
       - --deploy-mode
       - client
+      - --executor-cores
+      - ${SPARK_EXECUTOR_CORES:?SPARK_EXECUTOR_CORES is required}
+      - --conf
+      - spark.cores.max=${SPARK_MAX_CORES_PER_JOB:?SPARK_MAX_CORES_PER_JOB is required}
+      - --conf
+      - spark.sql.shuffle.partitions=${SPARK_SHUFFLE_PARTITIONS:?SPARK_SHUFFLE_PARTITIONS is required}
       - /app/pipelines/spark/src/spb_transport_spark/position_stream.py
     environment:
       PYSPARK_PYTHON: /app/.venv/bin/python
@@ -288,6 +300,13 @@ services:
       HDFS_POSITION_PROCESSED_PATH: ${HDFS_POSITION_PROCESSED_PATH:?HDFS_POSITION_PROCESSED_PATH is required}
       HDFS_POSITION_QUARANTINE_PATH: ${HDFS_POSITION_QUARANTINE_PATH:?HDFS_POSITION_QUARANTINE_PATH is required}
       HDFS_POSITION_CHECKPOINT_PATH: ${HDFS_POSITION_CHECKPOINT_PATH:?HDFS_POSITION_CHECKPOINT_PATH is required}
+      CASSANDRA_HOST: ${CASSANDRA_HOST:?CASSANDRA_HOST is required}
+      CASSANDRA_NATIVE_PORT: ${CASSANDRA_NATIVE_PORT:?CASSANDRA_NATIVE_PORT is required}
+      CASSANDRA_DATACENTER: ${CASSANDRA_DATACENTER:?CASSANDRA_DATACENTER is required}
+      CASSANDRA_KEYSPACE: ${CASSANDRA_KEYSPACE:?CASSANDRA_KEYSPACE is required}
+      CASSANDRA_LATEST_TTL_SECONDS: ${CASSANDRA_LATEST_TTL_SECONDS:?CASSANDRA_LATEST_TTL_SECONDS is required}
+      CASSANDRA_USERNAME: ${CASSANDRA_USERNAME-}
+      CASSANDRA_PASSWORD: ${CASSANDRA_PASSWORD-}
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -297,6 +316,8 @@ services:
         condition: service_healthy
       spark-worker:
         condition: service_healthy
+      cassandra-init:
+        condition: service_completed_successfully
     stop_grace_period: 30s
     restart: unless-stopped
 
@@ -313,6 +334,12 @@ services:
       - spark://spark-master:7077
       - --deploy-mode
       - client
+      - --executor-cores
+      - ${SPARK_EXECUTOR_CORES:?SPARK_EXECUTOR_CORES is required}
+      - --conf
+      - spark.cores.max=${SPARK_MAX_CORES_PER_JOB:?SPARK_MAX_CORES_PER_JOB is required}
+      - --conf
+      - spark.sql.shuffle.partitions=${SPARK_SHUFFLE_PARTITIONS:?SPARK_SHUFFLE_PARTITIONS is required}
       - /app/pipelines/spark/src/spb_transport_spark/eta_stream.py
     environment:
       PYSPARK_PYTHON: /app/.venv/bin/python
@@ -325,6 +352,13 @@ services:
       HDFS_ETA_HISTORY_PATH: ${HDFS_ETA_HISTORY_PATH:?HDFS_ETA_HISTORY_PATH is required}
       HDFS_ETA_QUARANTINE_PATH: ${HDFS_ETA_QUARANTINE_PATH:?HDFS_ETA_QUARANTINE_PATH is required}
       HDFS_ETA_CHECKPOINT_PATH: ${HDFS_ETA_CHECKPOINT_PATH:?HDFS_ETA_CHECKPOINT_PATH is required}
+      CASSANDRA_HOST: ${CASSANDRA_HOST:?CASSANDRA_HOST is required}
+      CASSANDRA_NATIVE_PORT: ${CASSANDRA_NATIVE_PORT:?CASSANDRA_NATIVE_PORT is required}
+      CASSANDRA_DATACENTER: ${CASSANDRA_DATACENTER:?CASSANDRA_DATACENTER is required}
+      CASSANDRA_KEYSPACE: ${CASSANDRA_KEYSPACE:?CASSANDRA_KEYSPACE is required}
+      CASSANDRA_LATEST_TTL_SECONDS: ${CASSANDRA_LATEST_TTL_SECONDS:?CASSANDRA_LATEST_TTL_SECONDS is required}
+      CASSANDRA_USERNAME: ${CASSANDRA_USERNAME-}
+      CASSANDRA_PASSWORD: ${CASSANDRA_PASSWORD-}
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -334,6 +368,8 @@ services:
         condition: service_healthy
       spark-worker:
         condition: service_healthy
+      cassandra-init:
+        condition: service_completed_successfully
     stop_grace_period: 30s
     restart: unless-stopped
 
@@ -351,6 +387,12 @@ services:
       - spark://spark-master:7077
       - --deploy-mode
       - client
+      - --executor-cores
+      - ${SPARK_EXECUTOR_CORES:?SPARK_EXECUTOR_CORES is required}
+      - --conf
+      - spark.cores.max=${SPARK_MAX_CORES_PER_JOB:?SPARK_MAX_CORES_PER_JOB is required}
+      - --conf
+      - spark.sql.shuffle.partitions=${SPARK_SHUFFLE_PARTITIONS:?SPARK_SHUFFLE_PARTITIONS is required}
       - /app/pipelines/spark/src/spb_transport_spark/static_gtfs.py
     environment:
       PYSPARK_PYTHON: /app/.venv/bin/python
@@ -395,6 +437,41 @@ services:
       retries: 20
       start_period: 40s
     restart: unless-stopped
+
+  cassandra-init:
+    image: ${CASSANDRA_IMAGE:?CASSANDRA_IMAGE is required}
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    environment:
+      CASSANDRA_KEYSPACE: ${CASSANDRA_KEYSPACE:?CASSANDRA_KEYSPACE is required}
+      CASSANDRA_DATACENTER: ${CASSANDRA_DATACENTER:?CASSANDRA_DATACENTER is required}
+      CASSANDRA_REPLICATION_FACTOR: ${CASSANDRA_REPLICATION_FACTOR:?CASSANDRA_REPLICATION_FACTOR is required}
+      CASSANDRA_NATIVE_PORT: ${CASSANDRA_NATIVE_PORT:?CASSANDRA_NATIVE_PORT is required}
+      CASSANDRA_USERNAME: ${CASSANDRA_USERNAME-}
+      CASSANDRA_PASSWORD: ${CASSANDRA_PASSWORD-}
+    volumes:
+      - ./infra/cassandra/serving.cql.template:/schema/serving.cql.template:ro
+    command:
+      - bash
+      - -ec
+      - >-
+        [[ "$${CASSANDRA_KEYSPACE}" =~ ^[a-z][a-z0-9_]*$ ]] ||
+          { echo 'invalid CASSANDRA_KEYSPACE' >&2; exit 1; };
+        [[ "$${CASSANDRA_DATACENTER}" =~ ^[A-Za-z0-9_-]+$ ]] ||
+          { echo 'invalid CASSANDRA_DATACENTER' >&2; exit 1; };
+        [[ "$${CASSANDRA_REPLICATION_FACTOR}" =~ ^[1-9][0-9]*$ ]] ||
+          { echo 'invalid CASSANDRA_REPLICATION_FACTOR' >&2; exit 1; };
+        if [[ -n "$${CASSANDRA_USERNAME}" || -n "$${CASSANDRA_PASSWORD}" ]]; then
+          [[ -n "$${CASSANDRA_USERNAME}" && -n "$${CASSANDRA_PASSWORD}" ]] ||
+            { echo 'Cassandra username and password must be set together' >&2; exit 1; };
+          auth=(-u "$${CASSANDRA_USERNAME}" -p "$${CASSANDRA_PASSWORD}");
+        else
+          auth=();
+        fi;
+        sed -e "s/{{KEYSPACE}}/$${CASSANDRA_KEYSPACE}/g" -e "s/{{DATACENTER}}/$${CASSANDRA_DATACENTER}/g" -e "s/{{REPLICATION_FACTOR}}/$${CASSANDRA_REPLICATION_FACTOR}/g" /schema/serving.cql.template |
+          cqlsh "$${auth[@]}" cassandra "$${CASSANDRA_NATIVE_PORT}"
+    restart: "no"
 
 volumes:
   kafka-data:
