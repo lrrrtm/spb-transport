@@ -24,6 +24,15 @@ class ShapeProjection:
     segment_bearing_deg: float
 
 
+def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance between two WGS84 points, in metres."""
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    half_dphi = (phi2 - phi1) / 2
+    half_dlambda = math.radians(lon2 - lon1) / 2
+    a = math.sin(half_dphi) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(half_dlambda) ** 2
+    return 2 * EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(a)))
+
+
 def bearing_difference_deg(first: float, second: float) -> float:
     """Smallest absolute angle between two compass bearings, in [0, 180]."""
     difference = abs(first - second) % 360.0
