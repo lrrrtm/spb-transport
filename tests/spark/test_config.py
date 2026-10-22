@@ -1,5 +1,5 @@
 from pytest import MonkeyPatch, raises
-from spb_transport_spark.config import PositionStreamSettings, RawArchiveSettings
+from spb_transport_spark.config import EtaStreamSettings, PositionStreamSettings, RawArchiveSettings
 
 
 def test_raw_archive_settings_require_every_value(monkeypatch: MonkeyPatch) -> None:
@@ -61,3 +61,23 @@ def test_position_stream_settings_reject_non_positive_threshold(
 
     with raises(ValueError, match="positive integer"):
         PositionStreamSettings.from_env()
+
+
+def test_eta_stream_settings_load_explicit_values(monkeypatch: MonkeyPatch) -> None:
+    values = {
+        "KAFKA_BOOTSTRAP_SERVERS": "kafka:29092",
+        "KAFKA_VEHICLE_ETA_TOPIC": "vehicle-eta.v1",
+        "SPARK_KAFKA_STARTING_OFFSETS": "earliest",
+        "SPARK_TRIGGER_INTERVAL": "10 seconds",
+        "SPARK_ETA_WATERMARK": "1 hour",
+        "HDFS_ETA_HISTORY_PATH": "hdfs://namenode/processed/eta",
+        "HDFS_ETA_QUARANTINE_PATH": "hdfs://namenode/quarantine/eta",
+        "HDFS_ETA_CHECKPOINT_PATH": "hdfs://namenode/checkpoints/eta",
+    }
+    for name, value in values.items():
+        monkeypatch.setenv(name, value)
+
+    settings = EtaStreamSettings.from_env()
+
+    assert settings.kafka_topic == "vehicle-eta.v1"
+    assert settings.watermark == "1 hour"
