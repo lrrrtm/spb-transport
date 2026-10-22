@@ -1,4 +1,5 @@
 import os
+import re
 from dataclasses import dataclass
 
 
@@ -53,6 +54,36 @@ def required_positive_int(name: str) -> int:
 
 
 @dataclass(frozen=True)
+class CassandraSettings:
+    host: str
+    port: int
+    local_dc: str
+    keyspace: str
+    latest_ttl_seconds: int
+    username: str | None
+    password: str | None
+
+    @classmethod
+    def from_env(cls) -> "CassandraSettings":
+        keyspace = required("CASSANDRA_KEYSPACE")
+        if re.fullmatch(r"[a-z][a-z0-9_]*", keyspace) is None:
+            raise ValueError("CASSANDRA_KEYSPACE must be a lowercase CQL identifier")
+        username = os.environ.get("CASSANDRA_USERNAME", "").strip() or None
+        password = os.environ.get("CASSANDRA_PASSWORD", "").strip() or None
+        if (username is None) != (password is None):
+            raise ValueError("CASSANDRA_USERNAME and CASSANDRA_PASSWORD must be set together")
+        return cls(
+            host=required("CASSANDRA_HOST"),
+            port=required_positive_int("CASSANDRA_NATIVE_PORT"),
+            local_dc=required("CASSANDRA_DATACENTER"),
+            keyspace=keyspace,
+            latest_ttl_seconds=required_positive_int("CASSANDRA_LATEST_TTL_SECONDS"),
+            username=username,
+            password=password,
+        )
+
+
+@dataclass(frozen=True)
 class PositionStreamSettings:
     kafka_bootstrap_servers: str
     kafka_topic: str
@@ -64,6 +95,7 @@ class PositionStreamSettings:
     processed_path: str
     quarantine_path: str
     checkpoint_path: str
+    cassandra: CassandraSettings
 
     @classmethod
     def from_env(cls) -> "PositionStreamSettings":
@@ -80,6 +112,7 @@ class PositionStreamSettings:
             processed_path=required("HDFS_POSITION_PROCESSED_PATH"),
             quarantine_path=required("HDFS_POSITION_QUARANTINE_PATH"),
             checkpoint_path=required("HDFS_POSITION_CHECKPOINT_PATH"),
+            cassandra=CassandraSettings.from_env(),
         )
 
 
@@ -93,6 +126,7 @@ class EtaStreamSettings:
     history_path: str
     quarantine_path: str
     checkpoint_path: str
+    cassandra: CassandraSettings
 
     @classmethod
     def from_env(cls) -> "EtaStreamSettings":
@@ -107,4 +141,5 @@ class EtaStreamSettings:
             history_path=required("HDFS_ETA_HISTORY_PATH"),
             quarantine_path=required("HDFS_ETA_QUARANTINE_PATH"),
             checkpoint_path=required("HDFS_ETA_CHECKPOINT_PATH"),
+            cassandra=CassandraSettings.from_env(),
         )

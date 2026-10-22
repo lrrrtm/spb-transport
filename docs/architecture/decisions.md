@@ -83,3 +83,29 @@ ETA начинаем с исторических медиан по участк�
 
 Более сложную модель добавляем, только когда накопится история и модель обгонит baseline на
 отложенном по времени периоде. `/stopforecast` не используем, пока не изучим его данные.
+
+## ADR 0007: Граница Spark–Cassandra serving
+
+Принято.
+
+Processed Parquet в HDFS нужен для воспроизводимой аналитики, но не подходит для
+low-latency lookup текущего состояния транспорта и короткой истории одной машины.
+Дублировать весь архив в Cassandra не требуется. Spark и Cassandra connector должны
+использовать подтверждённо совместимые версии без скачивания JAR при старте job.
+
+- Spark закреплён на 3.5.9 с Scala 2.12, Cassandra connector assembly — на 3.5.1.
+- Kafka и Cassandra connector JAR добавляются в image при сборке с SHA-256 checksums.
+- HDFS хранит канонические processed datasets; Cassandra хранит только query-oriented
+  latest и bounded-by-day history tables.
+- Schema применяется идемпотентным `cassandra-init` до старта streaming jobs.
+- History writes идемпотентны за счёт детерминированных primary keys.
+- Latest writes используют timestamp исходного наблюдения как Cassandra writetime. Replay
+  старого события не может затереть более новое.
+- Latest rows имеют обязательный TTL. Это ограничивает stale membership в таблице маршрута
+  после смены `route_id`; consumers дополнительно фильтруют данные по freshness timestamp.
+- Credentials необязательны только для локального no-auth режима и, если используются,
+  задаются парой.
+
+Spark 4 не используется, пока официальный connector не заявляет его поддержку. Добавление
+новых Cassandra tables требует сначала определить endpoint/query pattern и оценить partition
+size. Аналитические сканы и переобучение моделей читают HDFS, а не Cassandra.

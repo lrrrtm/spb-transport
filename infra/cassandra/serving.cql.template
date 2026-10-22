@@ -1,0 +1,68 @@
+CREATE KEYSPACE IF NOT EXISTS {{KEYSPACE}}
+WITH replication = {
+  'class': 'NetworkTopologyStrategy',
+  '{{DATACENTER}}': {{REPLICATION_FACTOR}}
+};
+
+CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.vehicle_latest_by_vehicle (
+  vehicle_id text PRIMARY KEY,
+  route_id text,
+  event_id text,
+  source_timestamp timestamp,
+  collected_at timestamp,
+  latitude double,
+  longitude double,
+  bearing double,
+  speed double,
+  label text,
+  license_plate text,
+  quality_flags list<text>,
+  has_quality_flags boolean
+);
+
+CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.vehicles_latest_by_route (
+  route_id text,
+  vehicle_id text,
+  event_id text,
+  source_timestamp timestamp,
+  collected_at timestamp,
+  latitude double,
+  longitude double,
+  bearing double,
+  speed double,
+  label text,
+  license_plate text,
+  quality_flags list<text>,
+  has_quality_flags boolean,
+  PRIMARY KEY ((route_id), vehicle_id)
+);
+
+CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.vehicle_positions_by_vehicle_day (
+  vehicle_id text,
+  event_date date,
+  source_timestamp timestamp,
+  event_id text,
+  route_id text,
+  collected_at timestamp,
+  latitude double,
+  longitude double,
+  bearing double,
+  speed double,
+  label text,
+  license_plate text,
+  quality_flags list<text>,
+  has_quality_flags boolean,
+  PRIMARY KEY ((vehicle_id, event_date), source_timestamp, event_id)
+) WITH CLUSTERING ORDER BY (source_timestamp DESC, event_id ASC);
+
+CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.eta_history_by_vehicle_day (
+  vehicle_id text,
+  collected_date date,
+  collected_at timestamp,
+  event_id text,
+  route_id text,
+  forecast_count int,
+  eta_status text,
+  forecasts_json text,
+  PRIMARY KEY ((vehicle_id, collected_date), collected_at, event_id)
+) WITH CLUSTERING ORDER BY (collected_at DESC, event_id ASC);

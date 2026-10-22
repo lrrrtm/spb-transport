@@ -10,6 +10,7 @@ from pyspark.sql.types import (
     TimestampType,
 )
 
+from spb_transport_spark.cassandra_sink import configure_cassandra, write_eta_history
 from spb_transport_spark.config import EtaStreamSettings
 
 FORECAST_SCHEMA = StructType(
@@ -85,8 +86,10 @@ def classify(source: DataFrame) -> DataFrame:
     )
 
 
-def start(settings: EtaStreamSettings) -> tuple[StreamingQuery, StreamingQuery]:
-    spark = SparkSession.builder.appName("vehicle-eta-stream").getOrCreate()
+def start(settings: EtaStreamSettings) -> tuple[StreamingQuery, StreamingQuery, StreamingQuery]:
+    spark = configure_cassandra(
+        SparkSession.builder.appName("vehicle-eta-stream"), settings.cassandra
+    ).getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
     source = (
         spark.readStream.format("kafka")
@@ -122,7 +125,15 @@ def start(settings: EtaStreamSettings) -> tuple[StreamingQuery, StreamingQuery]:
         .trigger(processingTime=settings.trigger_interval)
         .start()
     )
-    return history_query, quarantine_query
+    cassandra_query = (
+        history.writeStream.foreachBatch(
+            lambda frame, _batch_id: write_eta_history(frame, settings.cassandra)
+        )
+        .option("checkpointLocation", f"{settings.checkpoint_path}/cassandra")
+        .trigger(processingTime=settings.trigger_interval)
+        .start()
+    )
+    return history_query, quarantine_query, cassandra_query
 
 
 def main() -> None:
