@@ -1,6 +1,9 @@
+import math
 import os
 import re
 from dataclasses import dataclass
+
+from spb_transport_spark.route_matching import MatchingParameters
 
 
 def required(name: str) -> str:
@@ -142,4 +145,59 @@ class EtaStreamSettings:
             quarantine_path=required("HDFS_ETA_QUARANTINE_PATH"),
             checkpoint_path=required("HDFS_ETA_CHECKPOINT_PATH"),
             cassandra=CassandraSettings.from_env(),
+        )
+
+
+def required_finite_float(name: str) -> float:
+    value = required(name)
+    try:
+        parsed = float(value)
+    except ValueError as error:
+        raise ValueError(f"{name} must be a number") from error
+    if not math.isfinite(parsed):
+        raise ValueError(f"{name} must be a finite number")
+    return parsed
+
+
+ROUTE_MATCH_PARAMETER_ENV = {
+    "max_offset_m": "ROUTE_MATCH_MAX_OFFSET_M",
+    "gps_sigma_m": "ROUTE_MATCH_GPS_SIGMA_M",
+    "outlier_offset_m": "ROUTE_MATCH_OUTLIER_OFFSET_M",
+    "bearing_weight": "ROUTE_MATCH_BEARING_WEIGHT",
+    "bearing_min_speed": "ROUTE_MATCH_BEARING_MIN_SPEED",
+    "max_backtrack_m": "ROUTE_MATCH_MAX_BACKTRACK_M",
+    "max_speed_mps": "ROUTE_MATCH_MAX_SPEED_MPS",
+    "transition_beta_m": "ROUTE_MATCH_TRANSITION_BETA_M",
+    "switch_cost": "ROUTE_MATCH_SWITCH_COST",
+    "terminal_restart_cost": "ROUTE_MATCH_TERMINAL_RESTART_COST",
+    "off_route_transition_cost": "ROUTE_MATCH_OFF_ROUTE_TRANSITION_COST",
+    "terminal_zone_m": "ROUTE_MATCH_TERMINAL_ZONE_M",
+    "max_gap_seconds": "ROUTE_MATCH_MAX_GAP_SECONDS",
+    "min_confidence": "ROUTE_MATCH_MIN_CONFIDENCE",
+}
+
+
+def matching_parameters_from_env() -> MatchingParameters:
+    return MatchingParameters(
+        **{field: required_finite_float(env) for field, env in ROUTE_MATCH_PARAMETER_ENV.items()}
+    )
+
+
+@dataclass(frozen=True)
+class RouteMatchingSettings:
+    positions_path: str
+    static_processed_path: str
+    matches_path: str
+    parameters: MatchingParameters
+
+    @classmethod
+    def from_env(cls) -> "RouteMatchingSettings":
+        positions_path = required("HDFS_POSITION_PROCESSED_PATH").rstrip("/")
+        static_processed_path = required("HDFS_STATIC_PROCESSED_PATH").rstrip("/")
+        matches_path = required("HDFS_ROUTE_MATCHES_PATH").rstrip("/")
+        return cls(
+            positions_path=positions_path,
+            static_processed_path=static_processed_path,
+            matches_path=matches_path,
+            parameters=matching_parameters_from_env(),
         )
