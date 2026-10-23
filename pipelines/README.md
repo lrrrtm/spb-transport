@@ -6,7 +6,7 @@
 Pipeline-код не импортирует внутренности FastAPI или frontend.
 
 Static GTFS job сохраняет исходный ZIP по content hash, проверяет обязательные файлы и
-колонки и создаёт versioned Parquet datasets `routes`, `stops`, `trips`, `shapes`.
+колонки и создаёт versioned Parquet datasets `routes`, `stops`, `trips`, `shapes`, `stop_times`.
 Схемы и HDFS paths: [`../docs/data-contracts/static-gtfs.md`](../docs/data-contracts/static-gtfs.md).
 
 ## Streaming jobs

@@ -2,7 +2,12 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from spb_transport_spark.static_gtfs import CSV_READ_OPTIONS, REQUIRED_COLUMNS, validate_archive
+from spb_transport_spark.static_gtfs import (
+    CSV_READ_OPTIONS,
+    REQUIRED_COLUMNS,
+    STATIC_DATASETS,
+    validate_archive,
+)
 
 
 def write_feed(
@@ -59,3 +64,7 @@ def test_validate_archive_rejects_missing_required_column(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="route_type"):
         validate_archive(feed, max_uncompressed_bytes=10_000)
+
+
+def test_every_processed_dataset_is_a_required_file() -> None:
+    assert {f"{dataset}.txt" for dataset in STATIC_DATASETS} <= REQUIRED_COLUMNS.keys()
