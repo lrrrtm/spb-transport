@@ -175,7 +175,11 @@ def events_for_run(
         return
     points = [
         RunPoint(
-            row.event_id, as_utc_epoch(row.source_timestamp), row.distance_along_m, row.confidence
+            row.event_id,
+            as_utc_epoch(row.source_timestamp),
+            row.distance_along_m,
+            row.confidence,
+            row.speed,
         )
         for row in rows
     ]
@@ -307,6 +311,7 @@ def read_matched(
             "source_timestamp",
             "distance_along_m",
             "confidence",
+            "speed",
         )
     )
 

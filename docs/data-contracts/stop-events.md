@@ -40,7 +40,7 @@ HDFS_SEGMENT_TRAVERSALS_PATH/algorithm_version=<v>/event_date=YYYY-MM-DD/
 | `passage_time` | timestamp, nullable | Пересечение линии остановки; `null` только для `departure_only` |
 | `departure_time` | timestamp, nullable | Выход из геозоны; `null`, если run закончился внутри неё |
 | `dwell_s` | double, nullable | `departure_time − arrival_time` |
-| `stopped` | boolean, nullable | `dwell_s ≥ STOP_EVENT_MIN_DWELL_SECONDS` |
+| `stopped` | boolean, nullable | В зоне есть наблюдение со `speed` или скоростью прогресса между соседними наблюдениями ≤ `STOP_EVENT_STOPPED_MAX_SPEED_MPS`; `false` — машина вышла из зоны без таких наблюдений; `null` — данных нет |
 | `observations_in_zone` | int | Наблюдения внутри геозоны |
 | `method` | string | `observed` (есть наблюдение в зоне), `interpolated`, `departure_only` (run начался в зоне) |
 | `crossing_gap_s` | double | Интервал между наблюдениями, между которыми интерполировано событие |

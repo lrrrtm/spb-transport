@@ -145,8 +145,8 @@ docker compose --profile batch run --rm spark-route-matching \
 - `HDFS_ROUTE_MATCHES_PATH`, `HDFS_STATIC_PROCESSED_PATH` — входы;
 - `HDFS_STOP_PATTERNS_PATH`, `HDFS_STOP_ARRIVALS_PATH`, `HDFS_SEGMENT_TRAVERSALS_PATH` — выходы;
 - `STOP_EVENT_STOP_MAX_OFFSET_M`, `STOP_EVENT_ZONE_BEFORE_M`, `STOP_EVENT_ZONE_AFTER_M`,
-  `STOP_EVENT_MAX_INTERPOLATION_GAP_SECONDS`, `STOP_EVENT_MIN_DWELL_SECONDS` — пороги алгоритма,
-  все обязательны; значения предварительные, см. [`research/stop-arrivals.md`](research/stop-arrivals.md).
+  `STOP_EVENT_MAX_INTERPOLATION_GAP_SECONDS`, `STOP_EVENT_STOPPED_MAX_SPEED_MPS` — пороги
+  алгоритма, все обязательны; обоснование значений — [`research/stop-arrivals.md`](research/stop-arrivals.md).
 
 Запускается после T09 для того же дня и той же версии static feed:
 

@@ -18,7 +18,7 @@ VALUES = {
     "STOP_EVENT_ZONE_BEFORE_M": "30",
     "STOP_EVENT_ZONE_AFTER_M": "30",
     "STOP_EVENT_MAX_INTERPOLATION_GAP_SECONDS": "120",
-    "STOP_EVENT_MIN_DWELL_SECONDS": "10",
+    "STOP_EVENT_STOPPED_MAX_SPEED_MPS": "0.5",
     "STOP_EVENT_STOP_MAX_OFFSET_M": "40",
 }
 
@@ -120,11 +120,12 @@ def test_events_for_run_rows_match_output_schemas() -> None:
             source_timestamp=datetime.fromtimestamp(1_790_000_000 + 10 * i, UTC),
             distance_along_m=50.0 * i,
             confidence=0.99,
+            speed=5.0,
         )
         for i in range(16)
     ]
     parameters = StopEventParameters(
-        zone_before_m=30, zone_after_m=30, max_interpolation_gap_s=120, min_dwell_s=10
+        zone_before_m=30, zone_after_m=30, max_interpolation_gap_s=120, stopped_max_speed_mps=0.5
     )
 
     tagged = list(events_for_run(rows, {"s": pattern}, parameters, "v" * 64))
