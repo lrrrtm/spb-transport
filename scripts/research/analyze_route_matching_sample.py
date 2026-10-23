@@ -9,6 +9,11 @@ thresholds in `docs/research/route-matching.md`.
 Usage:
     uv run python scripts/research/analyze_route_matching_sample.py \
         data/research/route-matching/<run>
+
+With `--with-matcher` the report also runs the T09 matcher with ROUTE_MATCH_* parameters from
+the environment
+(`set -a; source <(grep '^ROUTE_MATCH_' .env); set +a`) and reports match statuses, confidence
+and run lengths.
 """
 
 from __future__ import annotations
@@ -25,6 +30,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from spb_transport_collector.vehicle_feed import parse_vehicle_feed
+from spb_transport_spark.config import matching_parameters_from_env
+from spb_transport_spark.route_matching import (
+    ALGORITHM_VERSION,
+    MatchingParameters,
+    RouteMatcher,
+)
+from spb_transport_spark.route_matching import (
+    Observation as MatchObservation,
+)
 from spb_transport_spark.shape_geometry import (
     ShapeGeometry,
     ShapeProjection,
@@ -141,7 +155,56 @@ def pairs(observations: Iterable[Observation]) -> Iterator[tuple[Observation, Ob
         previous = observation
 
 
-def analyze(sample: Path) -> str:
+def matcher_section(
+    observations: Sequence[Observation],
+    shapes_by_route: dict[str, set[str]],
+    geometries: dict[str, ShapeGeometry],
+    parameters: MatchingParameters,
+) -> list[str]:
+    by_route = {
+        route_id: [geometries[s] for s in sorted(shape_ids) if s in geometries]
+        for route_id, shape_ids in shapes_by_route.items()
+    }
+    matcher = RouteMatcher(by_route, parameters)
+    by_vehicle: dict[str, list[MatchObservation]] = defaultdict(list)
+    for o in observations:
+        by_vehicle[o.vehicle_id].append(
+            MatchObservation(
+                event_id=f"{o.vehicle_id}@{o.source_timestamp}",
+                vehicle_id=o.vehicle_id,
+                route_id=o.route_id,
+                timestamp=o.source_timestamp,
+                latitude=o.latitude,
+                longitude=o.longitude,
+                bearing=o.bearing,
+                speed=o.speed,
+            )
+        )
+    matches = [m for track in by_vehicle.values() for m in matcher.match_vehicle(track)]
+    statuses = Counter(m.status.value for m in matches)
+    on_route = [m.confidence for m in matches if m.shape_id is not None]
+    run_sizes = Counter(m.run_id for m in matches if m.run_id is not None)
+    tracks = {m.track_id for m in matches}
+    return [
+        "",
+        f"## 8. Результат matcher `{ALGORITHM_VERSION}`",
+        "",
+        f"Параметры: `{parameters}`",
+        "",
+        "| match_status | Доля наблюдений |",
+        "|---|---:|",
+        *[
+            f"| {status} | {share(count, len(matches))} |"
+            for status, count in sorted(statuses.items())
+        ],
+        "",
+        f"- confidence сопоставленных наблюдений: {describe(on_route, 3)}",
+        f"- треков: {len(tracks)}; прогонов (run): {len(run_sizes)};"
+        f" наблюдений в прогоне: {describe([float(v) for v in run_sizes.values()], 0)}",
+    ]
+
+
+def analyze(sample: Path, parameters: MatchingParameters | None = None) -> str:
     manifest = json.loads((sample / "manifest.json").read_text(encoding="utf-8"))
     route_ids, shapes_by_route, shape_points = load_static(sample / "feed.zip")
     polls, raw_count, observations = load_observations(sample / "vehicle")
@@ -319,14 +382,27 @@ def analyze(sample: Path) -> str:
         f"- отношение speed источника к скорости по прогрессу: {describe(speed_ratio, 2)}"
         " (≈1 — м/с, ≈3.6 — км/ч)",
     ]
+    if parameters is not None:
+        for shape_id in {s for shapes in shapes_by_route.values() for s in shapes}:
+            if shape_id not in geometries and len(shape_points.get(shape_id, ())) >= 2:
+                geometries[shape_id] = ShapeGeometry(
+                    shape_id, shape_points[shape_id], cell_size_m=CELL_SIZE_M
+                )
+        lines += matcher_section(observations, shapes_by_route, geometries, parameters)
     return "\n".join(lines) + "\n"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Analyze a T09 route matching research sample")
     parser.add_argument("sample", type=Path)
+    parser.add_argument(
+        "--with-matcher",
+        action="store_true",
+        help="also run the matcher with ROUTE_MATCH_* parameters from the environment",
+    )
     arguments = parser.parse_args()
-    report = analyze(arguments.sample)
+    parameters = matching_parameters_from_env() if arguments.with_matcher else None
+    report = analyze(arguments.sample, parameters)
     (arguments.sample / "report.md").write_text(report, encoding="utf-8")
     print(report)
 
