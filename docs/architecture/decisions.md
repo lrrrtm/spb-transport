@@ -56,6 +56,15 @@ Schema Registry пока не нужен. Вернёмся к нему, если
 `trip_id` и `stop_sequence` не выводим и не придумываем. Пороги подбираем на реальной
 выборке; новая версия алгоритма пишет новую версию производного набора, raw не трогаем.
 
+Реализация (T09, октябрь 2026). Алгоритм `route-match-hmm-v1` — скрытая марковская модель по
+треку машины: Viterbi выбирает путь, forward-backward даёт `confidence`, для выбросов есть
+отдельное состояние `off_route`. Описание — в [`research/route-matching.md`](../research/route-matching.md).
+Пороги подобраны на выборке 03.10.2026 (суббота, день) и задаются обязательными
+переменными `ROUTE_MATCH_*`; что ещё нужно проверить на будних выборках — в
+[`research/follow-ups.md`](../research/follow-ups.md). Результат пишется в silver
+`vehicle_route_matches` ([контракт](../data-contracts/route-matches.md)) с полями
+`match_status`, `confidence`, `run_id` и `algorithm_version`; метрики берут только `matched`.
+
 ## ADR 0005: Конфигурация и TLS
 
 Принято 29.09.2026.
