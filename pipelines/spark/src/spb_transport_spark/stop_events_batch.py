@@ -19,12 +19,14 @@ import argparse
 import logging
 from collections.abc import Iterable, Iterator
 from datetime import UTC, date, datetime
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from spb_transport_spark.config import StopEventSettings
 from spb_transport_spark.route_match_batch import (
     as_utc_epoch,
     build_shape_geometries,
+    shuffle_partitions,
     static_version_argument,
 )
 from spb_transport_spark.route_matching import ALGORITHM_VERSION as ROUTE_MATCH_VERSION
@@ -235,6 +237,14 @@ def events_for_run(
         )
 
 
+def _has_tag(tag: str, item: tuple[str, tuple[Any, ...]]) -> bool:
+    return item[0] == tag
+
+
+def _payload(item: tuple[str, tuple[Any, ...]]) -> tuple[Any, ...]:
+    return item[1]
+
+
 def load_patterns(
     spark: SparkSession, static_root: str, static_version: str, stop_max_offset_m: float
 ) -> dict[str, StopPattern]:
@@ -328,13 +338,13 @@ def run_job(settings: StopEventSettings, event_date: date, static_version: str) 
         broadcast = spark.sparkContext.broadcast(patterns)
         parameters = settings.parameters
 
-        def per_run(item: tuple[str, Iterable[Any]]) -> Iterator[tuple[str, tuple[Any, ...]]]:
+        def per_run(item: tuple[Any, Iterable[Any]]) -> Iterator[tuple[str, tuple[Any, ...]]]:
             return events_for_run(item[1], broadcast.value, parameters, static_version)
 
         matched = read_matched(spark, settings.matches_path, event_date, static_version)
         tagged = (
             matched.rdd.map(lambda row: (row.run_id, row))
-            .groupByKey(numPartitions=int(spark.conf.get("spark.sql.shuffle.partitions")))
+            .groupByKey(numPartitions=shuffle_partitions(spark))
             .flatMap(per_run)
             .cache()
         )
@@ -349,11 +359,9 @@ def run_job(settings: StopEventSettings, event_date: date, static_version: str) 
         }
         counters: dict[str, int] = {"runs": matched.select("run_id").distinct().count()}
         for tag, (columns, path, time_columns) in outputs.items():
+            rows = tagged.filter(partial(_has_tag, tag)).map(_payload)
             frame = (
-                spark.createDataFrame(
-                    tagged.filter(lambda item, tag=tag: item[0] == tag).map(lambda item: item[1]),
-                    schema(columns),
-                )
+                spark.createDataFrame(rows, schema(columns))
                 .withColumn(
                     "service_date",
                     F.to_date(F.from_utc_timestamp(F.coalesce(*time_columns), "Europe/Moscow")),
