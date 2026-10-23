@@ -417,6 +417,61 @@ services:
         condition: service_healthy
     restart: "no"
 
+  spark-route-matching:
+    profiles: ["batch"]
+    image: ${SPARK_IMAGE:?SPARK_IMAGE is required}
+    build:
+      context: .
+      dockerfile: pipelines/spark/Dockerfile
+      args:
+        UV_INSECURE_HOST: ${UV_INSECURE_HOST-}
+    # Run-specific arguments are appended by `docker compose run`:
+    # --event-date YYYY-MM-DD --static-version <sha256>
+    entrypoint:
+      - /opt/spark/bin/spark-submit
+      - --master
+      - spark://spark-master:7077
+      - --deploy-mode
+      - client
+      - --executor-cores
+      - ${SPARK_EXECUTOR_CORES:?SPARK_EXECUTOR_CORES is required}
+      - --conf
+      - spark.cores.max=${SPARK_MAX_CORES_PER_JOB:?SPARK_MAX_CORES_PER_JOB is required}
+      - --conf
+      - spark.sql.shuffle.partitions=${SPARK_SHUFFLE_PARTITIONS:?SPARK_SHUFFLE_PARTITIONS is required}
+      - --conf
+      - spark.executorEnv.PYTHONPATH=/app/pipelines/spark/src
+      - /app/pipelines/spark/src/spb_transport_spark/route_match_batch.py
+    command: []
+    environment:
+      PYSPARK_PYTHON: /app/.venv/bin/python
+      PYTHONPATH: /app/pipelines/spark/src
+      HDFS_POSITION_PROCESSED_PATH: ${HDFS_POSITION_PROCESSED_PATH:?HDFS_POSITION_PROCESSED_PATH is required}
+      HDFS_STATIC_PROCESSED_PATH: ${HDFS_STATIC_PROCESSED_PATH:?HDFS_STATIC_PROCESSED_PATH is required}
+      HDFS_ROUTE_MATCHES_PATH: ${HDFS_ROUTE_MATCHES_PATH:?HDFS_ROUTE_MATCHES_PATH is required}
+      ROUTE_MATCH_MAX_OFFSET_M: ${ROUTE_MATCH_MAX_OFFSET_M:?ROUTE_MATCH_MAX_OFFSET_M is required}
+      ROUTE_MATCH_GPS_SIGMA_M: ${ROUTE_MATCH_GPS_SIGMA_M:?ROUTE_MATCH_GPS_SIGMA_M is required}
+      ROUTE_MATCH_OUTLIER_OFFSET_M: ${ROUTE_MATCH_OUTLIER_OFFSET_M:?ROUTE_MATCH_OUTLIER_OFFSET_M is required}
+      ROUTE_MATCH_BEARING_WEIGHT: ${ROUTE_MATCH_BEARING_WEIGHT:?ROUTE_MATCH_BEARING_WEIGHT is required}
+      ROUTE_MATCH_BEARING_MIN_SPEED: ${ROUTE_MATCH_BEARING_MIN_SPEED:?ROUTE_MATCH_BEARING_MIN_SPEED is required}
+      ROUTE_MATCH_MAX_BACKTRACK_M: ${ROUTE_MATCH_MAX_BACKTRACK_M:?ROUTE_MATCH_MAX_BACKTRACK_M is required}
+      ROUTE_MATCH_MAX_SPEED_MPS: ${ROUTE_MATCH_MAX_SPEED_MPS:?ROUTE_MATCH_MAX_SPEED_MPS is required}
+      ROUTE_MATCH_TRANSITION_BETA_M: ${ROUTE_MATCH_TRANSITION_BETA_M:?ROUTE_MATCH_TRANSITION_BETA_M is required}
+      ROUTE_MATCH_SWITCH_COST: ${ROUTE_MATCH_SWITCH_COST:?ROUTE_MATCH_SWITCH_COST is required}
+      ROUTE_MATCH_TERMINAL_RESTART_COST: ${ROUTE_MATCH_TERMINAL_RESTART_COST:?ROUTE_MATCH_TERMINAL_RESTART_COST is required}
+      ROUTE_MATCH_OFF_ROUTE_TRANSITION_COST: ${ROUTE_MATCH_OFF_ROUTE_TRANSITION_COST:?ROUTE_MATCH_OFF_ROUTE_TRANSITION_COST is required}
+      ROUTE_MATCH_TERMINAL_ZONE_M: ${ROUTE_MATCH_TERMINAL_ZONE_M:?ROUTE_MATCH_TERMINAL_ZONE_M is required}
+      ROUTE_MATCH_MAX_GAP_SECONDS: ${ROUTE_MATCH_MAX_GAP_SECONDS:?ROUTE_MATCH_MAX_GAP_SECONDS is required}
+      ROUTE_MATCH_MIN_CONFIDENCE: ${ROUTE_MATCH_MIN_CONFIDENCE:?ROUTE_MATCH_MIN_CONFIDENCE is required}
+    depends_on:
+      hdfs-datanode:
+        condition: service_healthy
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_healthy
+    restart: "no"
+
   cassandra:
     image: ${CASSANDRA_IMAGE:?CASSANDRA_IMAGE is required}
     hostname: cassandra

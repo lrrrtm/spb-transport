@@ -125,6 +125,21 @@ freshness cutoff по `source_timestamp`, а не считать наличие 
 окне и вычисляется позднее по истории. `forecast_rank` валидируется только как порядок
 элементов payload и не интерпретируется как GTFS `stop_sequence`.
 
+## Route/shape matching Spark job (T09)
+
+- `HDFS_POSITION_PROCESSED_PATH` и `HDFS_STATIC_PROCESSED_PATH` — входы;
+- `HDFS_ROUTE_MATCHES_PATH` — silver `vehicle_route_matches`;
+- `ROUTE_MATCH_*` — 14 параметров matcher; все обязательны и проверяются при старте.
+
+Значения в `.env.example` предварительные, их смысл и способ калибровки описаны в
+[`research/route-matching.md`](research/route-matching.md). День и версия static feed
+передаются аргументами запуска, а не через окружение:
+
+```shell
+docker compose --profile batch run --rm spark-route-matching \
+    --event-date 2026-10-01 --static-version <sha256>
+```
+
 ## Cassandra serving layer
 
 Schema bootstrap создаёт только таблицы, для которых уже есть конкретные query patterns:

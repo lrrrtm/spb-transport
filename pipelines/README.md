@@ -26,6 +26,17 @@ Processed positions сохраняют поля `vehicle-position.v1`, Kafka met
 `stationary_observation`) и `has_quality_flags`. ETA history добавляет `forecast_count` и
 `eta_status` (`available` или `empty`). Quarantine хранит исходный JSON и `quarantine_reason`.
 
+## Batch jobs
+
+| Job | Вход | Выход в HDFS | Partitioning | Идемпотентность |
+|---|---|---|---|---|
+| `route_match_batch.py` (T09) | processed positions за `event_date` + static `trips`, `shapes` | silver `vehicle_route_matches` | `algorithm_version/event_date` | dynamic overwrite партиции, детерминированные `track_id`/`run_id` |
+
+Matching выполняется на чистом Python (`route_matching.py`, `shape_geometry.py`) внутри
+`groupByKey` по `vehicle_id`: последовательность наблюдений машины нужна целиком. Shapes
+передаются broadcast-переменной, геометрия строится один раз на executor. Схема выхода:
+[`../docs/data-contracts/route-matches.md`](../docs/data-contracts/route-matches.md).
+
 ## Cassandra serving sink
 
 `cassandra_sink.py` пишет валидные дедуплицированные события через `foreachBatch`.
