@@ -9,6 +9,11 @@ thresholds in `docs/research/route-matching.md`.
 Usage:
     uv run python scripts/research/analyze_route_matching_sample.py \
         data/research/route-matching/<run>
+
+With `--with-matcher` the report also runs the T09 matcher with ROUTE_MATCH_* parameters from
+the environment
+(`set -a; source <(grep '^ROUTE_MATCH_' .env); set +a`) and reports match statuses, confidence
+and run lengths.
 """
 
 from __future__ import annotations
@@ -25,10 +30,21 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from spb_transport_collector.vehicle_feed import parse_vehicle_feed
+from spb_transport_spark.config import matching_parameters_from_env
+from spb_transport_spark.route_matching import (
+    ALGORITHM_VERSION,
+    MatchingParameters,
+    RouteMatch,
+    RouteMatcher,
+)
+from spb_transport_spark.route_matching import (
+    Observation as MatchObservation,
+)
 from spb_transport_spark.shape_geometry import (
     ShapeGeometry,
     ShapeProjection,
     bearing_difference_deg,
+    haversine_m,
 )
 
 SEARCH_RADIUS_M = 300.0
@@ -141,7 +157,103 @@ def pairs(observations: Iterable[Observation]) -> Iterator[tuple[Observation, Ob
         previous = observation
 
 
-def analyze(sample: Path) -> str:
+def matcher_section(
+    observations: Sequence[Observation],
+    shapes_by_route: dict[str, set[str]],
+    geometries: dict[str, ShapeGeometry],
+    parameters: MatchingParameters,
+) -> list[str]:
+    by_route = {
+        route_id: [geometries[s] for s in sorted(shape_ids) if s in geometries]
+        for route_id, shape_ids in shapes_by_route.items()
+    }
+    matcher = RouteMatcher(by_route, parameters)
+    by_vehicle: dict[str, list[MatchObservation]] = defaultdict(list)
+    for o in observations:
+        by_vehicle[o.vehicle_id].append(
+            MatchObservation(
+                event_id=f"{o.vehicle_id}@{o.source_timestamp}",
+                vehicle_id=o.vehicle_id,
+                route_id=o.route_id,
+                timestamp=o.source_timestamp,
+                latitude=o.latitude,
+                longitude=o.longitude,
+                bearing=o.bearing,
+                speed=o.speed,
+            )
+        )
+    pairs_by_track: dict[str, list[tuple[MatchObservation, RouteMatch]]] = defaultdict(list)
+    for track in by_vehicle.values():
+        by_event = {o.event_id: o for o in track}
+        for match in matcher.match_vehicle(track):
+            pairs_by_track[match.track_id].append((by_event[match.event_id], match))
+    matches = [m for pairs in pairs_by_track.values() for _, m in pairs]
+    statuses = Counter(m.status.value for m in matches)
+    on_route = [m.confidence for m in matches if m.shape_id is not None]
+    matched = [m for m in matches if m.status.value == "matched"]
+    moving = [m.bearing_difference_deg for m in matched if m.bearing_difference_deg is not None]
+    run_sizes = Counter(m.run_id for m in matches if m.run_id is not None)
+
+    progress: list[float] = []
+    deviation: list[float] = []
+    progress_speed: list[float] = []
+    boundaries: Counter[str] = Counter()
+    for pairs in pairs_by_track.values():
+        pairs.sort(key=lambda pair: pair[0].timestamp)
+        on_shape = [(o, m) for o, m in pairs if m.run_id is not None]
+        for (o1, m1), (o2, m2) in zip(on_shape, on_shape[1:], strict=False):
+            assert m1.distance_along_m is not None and m2.distance_along_m is not None
+            if m1.run_id != m2.run_id:
+                assert m1.shape_length_m is not None
+                terminal = (
+                    m1.distance_along_m >= m1.shape_length_m - parameters.terminal_zone_m
+                    and m2.distance_along_m <= parameters.terminal_zone_m
+                )
+                same = "тот же shape" if m1.shape_id == m2.shape_id else "другой shape"
+                boundaries[f"{same}, {'на конечной' if terminal else 'в середине'}"] += 1
+                continue
+            delta = m2.distance_along_m - m1.distance_along_m
+            progress.append(delta)
+            straight = haversine_m(o1.latitude, o1.longitude, o2.latitude, o2.longitude)
+            deviation.append(abs(delta - straight))
+            if o2.timestamp > o1.timestamp:
+                progress_speed.append(delta / (o2.timestamp - o1.timestamp))
+    return [
+        "",
+        f"## 8. Результат matcher `{ALGORITHM_VERSION}`",
+        "",
+        f"Параметры: `{parameters}`",
+        "",
+        "| match_status | Доля наблюдений |",
+        "|---|---:|",
+        *[
+            f"| {status} | {share(count, len(matches))} |"
+            for status, count in sorted(statuses.items())
+        ],
+        "",
+        f"- confidence сопоставленных наблюдений: {describe(on_route, 3)}",
+        f"- offset `matched`, м: {describe([m.offset_m or 0.0 for m in matched])}",
+        f"- `matched` в движении с Δbearing ≥ 135°:"
+        f" {share(sum(b >= 135 for b in moving), len(moving))}",
+        f"- прогонов (run): {len(run_sizes)}; наблюдений в прогоне:"
+        f" {describe([float(v) for v in run_sizes.values()], 0)};"
+        f" прогонов короче 5 наблюдений:"
+        f" {share(sum(v < 5 for v in run_sizes.values()), len(run_sizes))}",
+        "",
+        "Внутри прогона (соседние наблюдения на shape):",
+        "",
+        f"- Δprogress, м: {describe(progress)};"
+        f" < −20 м: {share(sum(d < -20 for d in progress), len(progress))}",
+        f"- |Δprogress − прямое расстояние|, м: {describe(deviation)}",
+        f"- скорость по прогрессу, м/с: {describe(progress_speed)};"
+        f" p99.9={quantile(progress_speed, 0.999) if progress_speed else 0:.1f}",
+        "",
+        "Границы прогонов: "
+        + "; ".join(f"{kind} — {count}" for kind, count in sorted(boundaries.items())),
+    ]
+
+
+def analyze(sample: Path, parameters: MatchingParameters | None = None) -> str:
     manifest = json.loads((sample / "manifest.json").read_text(encoding="utf-8"))
     route_ids, shapes_by_route, shape_points = load_static(sample / "feed.zip")
     polls, raw_count, observations = load_observations(sample / "vehicle")
@@ -319,14 +431,27 @@ def analyze(sample: Path) -> str:
         f"- отношение speed источника к скорости по прогрессу: {describe(speed_ratio, 2)}"
         " (≈1 — м/с, ≈3.6 — км/ч)",
     ]
+    if parameters is not None:
+        for shape_id in {s for shapes in shapes_by_route.values() for s in shapes}:
+            if shape_id not in geometries and len(shape_points.get(shape_id, ())) >= 2:
+                geometries[shape_id] = ShapeGeometry(
+                    shape_id, shape_points[shape_id], cell_size_m=CELL_SIZE_M
+                )
+        lines += matcher_section(observations, shapes_by_route, geometries, parameters)
     return "\n".join(lines) + "\n"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Analyze a T09 route matching research sample")
     parser.add_argument("sample", type=Path)
+    parser.add_argument(
+        "--with-matcher",
+        action="store_true",
+        help="also run the matcher with ROUTE_MATCH_* parameters from the environment",
+    )
     arguments = parser.parse_args()
-    report = analyze(arguments.sample)
+    parameters = matching_parameters_from_env() if arguments.with_matcher else None
+    report = analyze(arguments.sample, parameters)
     (arguments.sample / "report.md").write_text(report, encoding="utf-8")
     print(report)
 

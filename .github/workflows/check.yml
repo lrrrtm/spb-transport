@@ -22,6 +22,21 @@ jobs:
       - run: uv run mypy apps/collector/src packages/contracts/src pipelines/spark/src scripts tests
       - run: uv run pytest -n 6
 
+  spark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --locked --group spark
+      - run: uv run --group spark mypy pipelines/spark/src tests
+      - run: uv run --group spark pytest -m spark
+
   compose:
     runs-on: ubuntu-latest
     steps:
