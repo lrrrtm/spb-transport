@@ -32,6 +32,9 @@ Processed positions сохраняют поля `vehicle-position.v1`, Kafka met
 |---|---|---|---|---|
 | `route_match_batch.py` (T09) | processed positions за `event_date` + static `trips`, `shapes` | silver `vehicle_route_matches` | `algorithm_version/event_date` | dynamic overwrite партиции, детерминированные `track_id`/`run_id` |
 
+Интеграционные тесты batch jobs запускают локальный Spark (`make test-spark`, нужна Java 17);
+обычный `make check` их пропускает, в CI они идут отдельным job `spark`.
+
 Matching выполняется на чистом Python (`route_matching.py`, `shape_geometry.py`) внутри
 `groupByKey` по `vehicle_id`: последовательность наблюдений машины нужна целиком. Shapes
 передаются broadcast-переменной, геометрия строится один раз на executor. Схема выхода:

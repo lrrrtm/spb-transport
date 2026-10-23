@@ -1,4 +1,4 @@
-.PHONY: install format lint typecheck test compose-check check
+.PHONY: install format lint typecheck test test-spark compose-check check
 
 install:
 	uv --system-certs sync --locked
@@ -16,6 +16,9 @@ typecheck:
 
 test:
 	uv --system-certs run pytest -n 6
+
+test-spark:
+	uv --system-certs run --group spark pytest -m spark
 
 compose-check:
 	docker compose --env-file .env.example config --quiet

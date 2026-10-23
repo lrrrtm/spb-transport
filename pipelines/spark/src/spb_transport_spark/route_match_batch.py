@@ -124,7 +124,7 @@ _MATCHER_CACHE: dict[str, RouteMatcher] = {}
 
 
 def match_partition(
-    vehicles: Iterator[tuple[str, Iterable[Any]]],
+    vehicles: Iterable[tuple[Any, Iterable[Any]]],
     *,
     static_version: str,
     static_rows: Any,
@@ -203,6 +203,10 @@ def read_positions(spark: SparkSession, positions_path: str, event_date: date) -
     )
 
 
+def shuffle_partitions(spark: SparkSession) -> int:
+    return int(str(spark.conf.get("spark.sql.shuffle.partitions", "200")))
+
+
 def match_positions(
     spark: SparkSession,
     positions: DataFrame,
@@ -228,7 +232,7 @@ def match_positions(
     shape_directions = [(r.shape_id, r.direction_id) for r in trips]
     static_rows = spark.sparkContext.broadcast((shape_points, route_shapes, shape_directions))
 
-    def run(vehicles: Iterator[tuple[str, Iterable[Any]]]) -> Iterator[tuple[Any, ...]]:
+    def run(vehicles: Iterable[tuple[Any, Iterable[Any]]]) -> Iterable[tuple[Any, ...]]:
         return match_partition(
             vehicles,
             static_version=static_version,
@@ -238,7 +242,7 @@ def match_positions(
 
     matched = (
         positions.rdd.map(lambda row: (row.vehicle_id, row))
-        .groupByKey(numPartitions=int(spark.conf.get("spark.sql.shuffle.partitions")))
+        .groupByKey(numPartitions=shuffle_partitions(spark))
         .mapPartitions(run)
     )
     return spark.createDataFrame(matched, output_schema())
