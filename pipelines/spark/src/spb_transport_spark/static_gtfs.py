@@ -33,6 +33,8 @@ REQUIRED_COLUMNS = {
     "trips.txt": {"route_id", "service_id", "trip_id", "shape_id"},
 }
 
+STATIC_DATASETS = ("routes", "stops", "trips", "shapes", "stop_times")
+
 CSV_READ_OPTIONS = {
     "header": "true",
     "encoding": "UTF-8",
@@ -189,6 +191,17 @@ def _clean(dataset: str, frame: DataFrame) -> DataFrame:
             _optional(frame, "direction_id", "int"),
             _optional(frame, "shape_id"),
         ).filter(F.col("trip_id").isNotNull() & F.col("route_id").isNotNull())
+    if dataset == "stop_times":
+        return frame.select(
+            "trip_id",
+            "stop_id",
+            F.col("stop_sequence").cast("int").alias("stop_sequence"),
+            _optional(frame, "shape_dist_traveled", "double"),
+        ).filter(
+            F.col("trip_id").isNotNull()
+            & F.col("stop_id").isNotNull()
+            & F.col("stop_sequence").isNotNull()
+        )
     return frame.select(
         "shape_id",
         F.col("shape_pt_lat").cast("double").alias("shape_pt_lat"),
@@ -250,7 +263,7 @@ def ingest(settings: StaticGtfsSettings) -> str:
             _copy_to_hdfs(spark, archive_path, raw_target, overwrite=False)
 
             with zipfile.ZipFile(archive_path) as archive:
-                for dataset in ("routes", "stops", "trips", "shapes"):
+                for dataset in STATIC_DATASETS:
                     filename = f"{dataset}.txt"
                     archive.extract(filename, workdir)
                     staging = f"{settings.staging_path}/version={version}/{filename}"
