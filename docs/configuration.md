@@ -140,6 +140,21 @@ docker compose --profile batch run --rm spark-route-matching \
     --event-date 2026-10-01 --static-version <sha256>
 ```
 
+## Stop arrival и segment traversal Spark job (T10)
+
+- `HDFS_ROUTE_MATCHES_PATH`, `HDFS_STATIC_PROCESSED_PATH` — входы;
+- `HDFS_STOP_PATTERNS_PATH`, `HDFS_STOP_ARRIVALS_PATH`, `HDFS_SEGMENT_TRAVERSALS_PATH` — выходы;
+- `STOP_EVENT_STOP_MAX_OFFSET_M`, `STOP_EVENT_ZONE_BEFORE_M`, `STOP_EVENT_ZONE_AFTER_M`,
+  `STOP_EVENT_MAX_INTERPOLATION_GAP_SECONDS`, `STOP_EVENT_MIN_DWELL_SECONDS` — пороги алгоритма,
+  все обязательны; значения предварительные, см. [`research/stop-arrivals.md`](research/stop-arrivals.md).
+
+Запускается после T09 для того же дня и той же версии static feed:
+
+```shell
+docker compose --profile batch run --rm spark-stop-events \
+    --event-date 2026-10-01 --static-version <sha256>
+```
+
 ## Cassandra serving layer
 
 Schema bootstrap создаёт только таблицы, для которых уже есть конкретные query patterns:
