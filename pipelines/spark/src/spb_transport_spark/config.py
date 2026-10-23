@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 
 from spb_transport_spark.route_matching import MatchingParameters
+from spb_transport_spark.stop_events import StopEventParameters
 
 
 def required(name: str) -> str:
@@ -200,4 +201,48 @@ class RouteMatchingSettings:
             static_processed_path=static_processed_path,
             matches_path=matches_path,
             parameters=matching_parameters_from_env(),
+        )
+
+
+STOP_EVENT_PARAMETER_ENV = {
+    "zone_before_m": "STOP_EVENT_ZONE_BEFORE_M",
+    "zone_after_m": "STOP_EVENT_ZONE_AFTER_M",
+    "max_interpolation_gap_s": "STOP_EVENT_MAX_INTERPOLATION_GAP_SECONDS",
+    "min_dwell_s": "STOP_EVENT_MIN_DWELL_SECONDS",
+}
+
+
+@dataclass(frozen=True)
+class StopEventSettings:
+    matches_path: str
+    static_processed_path: str
+    stop_patterns_path: str
+    stop_arrivals_path: str
+    segment_traversals_path: str
+    stop_max_offset_m: float
+    parameters: StopEventParameters
+
+    @classmethod
+    def from_env(cls) -> "StopEventSettings":
+        matches_path = required("HDFS_ROUTE_MATCHES_PATH").rstrip("/")
+        static_processed_path = required("HDFS_STATIC_PROCESSED_PATH").rstrip("/")
+        stop_patterns_path = required("HDFS_STOP_PATTERNS_PATH").rstrip("/")
+        stop_arrivals_path = required("HDFS_STOP_ARRIVALS_PATH").rstrip("/")
+        segment_traversals_path = required("HDFS_SEGMENT_TRAVERSALS_PATH").rstrip("/")
+        stop_max_offset_m = required_finite_float("STOP_EVENT_STOP_MAX_OFFSET_M")
+        if stop_max_offset_m <= 0:
+            raise ValueError("STOP_EVENT_STOP_MAX_OFFSET_M must be positive")
+        return cls(
+            matches_path=matches_path,
+            static_processed_path=static_processed_path,
+            stop_patterns_path=stop_patterns_path,
+            stop_arrivals_path=stop_arrivals_path,
+            segment_traversals_path=segment_traversals_path,
+            stop_max_offset_m=stop_max_offset_m,
+            parameters=StopEventParameters(
+                **{
+                    field: required_finite_float(env)
+                    for field, env in STOP_EVENT_PARAMETER_ENV.items()
+                }
+            ),
         )

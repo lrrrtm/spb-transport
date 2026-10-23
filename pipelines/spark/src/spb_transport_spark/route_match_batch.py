@@ -79,15 +79,14 @@ def output_schema() -> StructType:
     return StructType([StructField(name, types[kind]) for name, kind in OUTPUT_COLUMNS])
 
 
-def build_shapes_by_route(
+def build_shape_geometries(
     shape_points: Iterable[tuple[str, int, float, float]],
-    route_shapes: Iterable[tuple[str, str]],
-) -> dict[str, list[ShapeGeometry]]:
-    """Build shape geometries per route from static rows; shapes with < 2 points are skipped."""
+) -> dict[str, ShapeGeometry]:
+    """Shape geometries from `(shape_id, sequence, lat, lon)` rows; shapes with < 2 points skip."""
     points: dict[str, list[tuple[int, float, float]]] = defaultdict(list)
     for shape_id, sequence, lat, lon in shape_points:
         points[shape_id].append((sequence, lat, lon))
-    geometries = {
+    return {
         shape_id: ShapeGeometry(
             shape_id,
             [(lat, lon) for _, lat, lon in sorted(rows)],
@@ -96,6 +95,14 @@ def build_shapes_by_route(
         for shape_id, rows in points.items()
         if len(rows) >= 2
     }
+
+
+def build_shapes_by_route(
+    shape_points: Iterable[tuple[str, int, float, float]],
+    route_shapes: Iterable[tuple[str, str]],
+) -> dict[str, list[ShapeGeometry]]:
+    """Build shape geometries per route from static rows."""
+    geometries = build_shape_geometries(shape_points)
     by_route: dict[str, list[ShapeGeometry]] = defaultdict(list)
     for route_id, shape_id in sorted(set(route_shapes)):
         if shape_id in geometries:
@@ -116,7 +123,7 @@ def unique_directions(shape_directions: Iterable[tuple[str, int | None]]) -> dic
     return directions
 
 
-def _as_utc_epoch(value: datetime) -> float:
+def as_utc_epoch(value: datetime) -> float:
     return (value if value.tzinfo else value.replace(tzinfo=UTC)).timestamp()
 
 
@@ -148,7 +155,7 @@ def match_partition(
                     event_id=row.event_id,
                     vehicle_id=row.vehicle_id,
                     route_id=row.route_id,
-                    timestamp=_as_utc_epoch(row.source_timestamp),
+                    timestamp=as_utc_epoch(row.source_timestamp),
                     latitude=row.latitude,
                     longitude=row.longitude,
                     bearing=row.bearing,
