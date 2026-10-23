@@ -16,7 +16,11 @@ Repeated crossing is impossible by construction: thresholds are applied to the r
 of progress, so GPS jitter backwards and forwards around a stop cannot create a second event. A
 crossing is not interpolated across a gap longer than `max_interpolation_gap_s`; a stop whose line
 the run starts beyond (for example the first stop while the vehicle waits at the terminal) has no
-event. Dwell is `departure_time - arrival_time`; `stopped` is dwell ≥ `min_dwell_s`.
+event. Dwell is `departure_time - arrival_time`. It also includes driving through the zone, so
+`stopped` is decided by speed instead: true when an observation inside the zone reports
+`speed ≤ stopped_max_speed_mps` or two consecutive in-zone observations progress slower than that
+(the reported speed lags behind a short stop); false when the vehicle left the zone and all such
+evidence shows movement; unknown otherwise.
 
 A segment traversal connects the passage times of two consecutive pattern stops in the same run.
 The module has no Spark dependency.
@@ -38,11 +42,11 @@ class StopEventParameters:
     zone_before_m: float
     zone_after_m: float
     max_interpolation_gap_s: float
-    min_dwell_s: float
+    stopped_max_speed_mps: float
 
     def __post_init__(self) -> None:
-        if self.zone_before_m < 0 or self.zone_after_m < 0 or self.min_dwell_s < 0:
-            raise ValueError("stop zone sizes and min_dwell_s must not be negative")
+        if self.zone_before_m < 0 or self.zone_after_m < 0 or self.stopped_max_speed_mps < 0:
+            raise ValueError("stop zone sizes and stopped_max_speed_mps must not be negative")
         if self.max_interpolation_gap_s <= 0:
             raise ValueError("max_interpolation_gap_s must be positive")
 
@@ -53,6 +57,7 @@ class RunPoint:
     timestamp: float
     distance_along_m: float
     confidence: float
+    speed: float | None = None
 
 
 @dataclass(frozen=True)
@@ -165,7 +170,20 @@ def stop_events(
         else:
             continue
         dwell = None if entry is None or exit_ is None else exit_.time - entry.time
-        in_zone = sum(zone_start <= value <= zone_end for value in progress.envelope)
+        zone_points = [
+            point
+            for point, value in zip(progress.points, progress.envelope, strict=True)
+            if zone_start <= value <= zone_end
+        ]
+        in_zone = len(zone_points)
+        # Evidence of standing still: reported speed of in-zone observations and the speed of
+        # progress between consecutive in-zone observations (the source speed lags a stop).
+        speeds = [point.speed for point in zone_points if point.speed is not None]
+        speeds += [
+            abs(b.distance_along_m - a.distance_along_m) / (b.timestamp - a.timestamp)
+            for a, b in zip(zone_points, zone_points[1:], strict=False)
+            if b.timestamp > a.timestamp
+        ]
         observed = "observed" if in_zone else "interpolated"
         method = "departure_only" if passage is None else observed
         arrivals.append(
@@ -182,7 +200,7 @@ def stop_events(
                 passage_time=_round(None if passage is None else passage.time),
                 departure_time=_round(None if exit_ is None else exit_.time),
                 dwell_s=_round(dwell),
-                stopped=None if dwell is None else dwell >= parameters.min_dwell_s,
+                stopped=_stopped(speeds, exit_ is not None, parameters.stopped_max_speed_mps),
                 observations_in_zone=in_zone,
                 method=method,
                 crossing_gap_s=round(method_crossing.gap_s, 3),
@@ -190,6 +208,14 @@ def stop_events(
             )
         )
     return arrivals, segment_traversals(run_id, pattern, progress, arrivals)
+
+
+def _stopped(speeds: Sequence[float], left_zone: bool, max_speed: float) -> bool | None:
+    """A stationary observation in the zone proves a stop; its absence proves nothing until the
+    vehicle has left the zone."""
+    if any(speed <= max_speed for speed in speeds):
+        return True
+    return False if speeds and left_zone else None
 
 
 def _first(*values: float | None) -> float | None:

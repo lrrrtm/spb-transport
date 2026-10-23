@@ -208,7 +208,7 @@ STOP_EVENT_PARAMETER_ENV = {
     "zone_before_m": "STOP_EVENT_ZONE_BEFORE_M",
     "zone_after_m": "STOP_EVENT_ZONE_AFTER_M",
     "max_interpolation_gap_s": "STOP_EVENT_MAX_INTERPOLATION_GAP_SECONDS",
-    "min_dwell_s": "STOP_EVENT_MIN_DWELL_SECONDS",
+    "stopped_max_speed_mps": "STOP_EVENT_STOPPED_MAX_SPEED_MPS",
 }
 
 

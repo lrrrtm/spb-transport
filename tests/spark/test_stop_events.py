@@ -5,7 +5,7 @@ from spb_transport_spark.stop_events import RunPoint, StopEventParameters, stop_
 from spb_transport_spark.stop_patterns import PatternStop, StopPattern
 
 PARAMETERS = StopEventParameters(
-    zone_before_m=30, zone_after_m=30, max_interpolation_gap_s=120, min_dwell_s=10
+    zone_before_m=30, zone_after_m=30, max_interpolation_gap_s=120, stopped_max_speed_mps=0.5
 )
 PATTERN = StopPattern(
     pattern_id="p" * 64,
@@ -21,9 +21,19 @@ PATTERN = StopPattern(
 )
 
 
-def run(samples: Sequence[tuple[float, float]], confidence: float = 0.99) -> list[RunPoint]:
+def run(
+    samples: Sequence[tuple[float, float]],
+    confidence: float = 0.99,
+    speeds: Sequence[float | None] | None = None,
+) -> list[RunPoint]:
     return [
-        RunPoint(f"e{index}", timestamp, distance, confidence)
+        RunPoint(
+            f"e{index}",
+            timestamp,
+            distance,
+            confidence,
+            5.0 if speeds is None else speeds[index],
+        )
         for index, (timestamp, distance) in enumerate(samples)
     ]
 
@@ -39,7 +49,7 @@ def test_constant_speed_pass_produces_interpolated_events_and_traversals() -> No
     assert b.arrival_time == pytest.approx(99)
     assert b.departure_time == pytest.approx(111)
     assert b.dwell_s == pytest.approx(12)
-    assert b.stopped is True
+    assert b.stopped is False  # driving through the zone at 5 m/s is not a stop
     assert [(t.from_stop_id, t.to_stop_id) for t in traversals] == [("A", "B"), ("B", "C")]
     assert traversals[0].travel_time_s == pytest.approx(100)
     assert traversals[0].speed_mps == pytest.approx(5)
@@ -52,7 +62,8 @@ def test_dwell_at_stop_is_measured_and_jitter_does_not_repeat_the_event() -> Non
     samples += [(10.0 + 10 * i, 500.0 + (5 if i % 2 else -5)) for i in range(1, 7)]
     samples += [(80.0, 560.0), (90.0, 640.0)]
 
-    arrivals, _ = stop_events("r", PATTERN, run(samples), PARAMETERS)
+    speeds = [5.0, 5.0, *([0.0] * 6), 5.0, 5.0]
+    arrivals, _ = stop_events("r", PATTERN, run(samples, speeds=speeds), PARAMETERS)
 
     [b] = arrivals
     assert b.stop_id == "B"
@@ -103,12 +114,15 @@ def test_run_ending_inside_zone_has_no_departure() -> None:
     assert b.departure_time is None and b.dwell_s is None and b.stopped is None
 
 
-def test_short_pass_through_zone_is_not_a_stop() -> None:
+def test_stop_is_unknown_without_observations_with_speed_in_zone() -> None:
     arrivals, _ = stop_events("r", PATTERN, run([(0.0, 400.0), (10.0, 600.0)]), PARAMETERS)
-
     [b] = arrivals
     assert b.dwell_s == pytest.approx(3)
-    assert b.stopped is False
+    assert b.stopped is None
+
+    samples = [(0.0, 400.0), (10.0, 495.0), (20.0, 600.0)]
+    arrivals, _ = stop_events("r", PATTERN, run(samples, speeds=[5.0, None, 5.0]), PARAMETERS)
+    assert arrivals[0].stopped is None
 
 
 def test_event_confidence_is_the_weakest_bracketing_observation() -> None:
@@ -132,9 +146,17 @@ def test_event_ids_are_deterministic() -> None:
 def test_parameters_are_validated() -> None:
     with pytest.raises(ValueError, match="max_interpolation_gap_s"):
         StopEventParameters(
-            zone_before_m=1, zone_after_m=1, max_interpolation_gap_s=0, min_dwell_s=0
+            zone_before_m=1, zone_after_m=1, max_interpolation_gap_s=0, stopped_max_speed_mps=0
         )
     with pytest.raises(ValueError, match="must not be negative"):
         StopEventParameters(
-            zone_before_m=-1, zone_after_m=1, max_interpolation_gap_s=1, min_dwell_s=0
+            zone_before_m=-1, zone_after_m=1, max_interpolation_gap_s=1, stopped_max_speed_mps=0
         )
+
+
+def test_stationary_progress_proves_a_stop_when_reported_speed_lags() -> None:
+    samples = [(0.0, 400.0), (10.0, 490.0), (20.0, 491.0), (30.0, 491.0), (40.0, 600.0)]
+
+    arrivals, _ = stop_events("r", PATTERN, run(samples, speeds=[5.0] * 5), PARAMETERS)
+
+    assert arrivals[0].stopped is True
