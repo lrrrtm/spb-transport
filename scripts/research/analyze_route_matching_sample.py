@@ -34,6 +34,7 @@ from spb_transport_spark.config import matching_parameters_from_env
 from spb_transport_spark.route_matching import (
     ALGORITHM_VERSION,
     MatchingParameters,
+    RouteMatch,
     RouteMatcher,
 )
 from spb_transport_spark.route_matching import (
@@ -43,6 +44,7 @@ from spb_transport_spark.shape_geometry import (
     ShapeGeometry,
     ShapeProjection,
     bearing_difference_deg,
+    haversine_m,
 )
 
 SEARCH_RADIUS_M = 300.0
@@ -180,11 +182,42 @@ def matcher_section(
                 speed=o.speed,
             )
         )
-    matches = [m for track in by_vehicle.values() for m in matcher.match_vehicle(track)]
+    pairs_by_track: dict[str, list[tuple[MatchObservation, RouteMatch]]] = defaultdict(list)
+    for track in by_vehicle.values():
+        by_event = {o.event_id: o for o in track}
+        for match in matcher.match_vehicle(track):
+            pairs_by_track[match.track_id].append((by_event[match.event_id], match))
+    matches = [m for pairs in pairs_by_track.values() for _, m in pairs]
     statuses = Counter(m.status.value for m in matches)
     on_route = [m.confidence for m in matches if m.shape_id is not None]
+    matched = [m for m in matches if m.status.value == "matched"]
+    moving = [m.bearing_difference_deg for m in matched if m.bearing_difference_deg is not None]
     run_sizes = Counter(m.run_id for m in matches if m.run_id is not None)
-    tracks = {m.track_id for m in matches}
+
+    progress: list[float] = []
+    deviation: list[float] = []
+    progress_speed: list[float] = []
+    boundaries: Counter[str] = Counter()
+    for pairs in pairs_by_track.values():
+        pairs.sort(key=lambda pair: pair[0].timestamp)
+        on_shape = [(o, m) for o, m in pairs if m.run_id is not None]
+        for (o1, m1), (o2, m2) in zip(on_shape, on_shape[1:], strict=False):
+            assert m1.distance_along_m is not None and m2.distance_along_m is not None
+            if m1.run_id != m2.run_id:
+                assert m1.shape_length_m is not None
+                terminal = (
+                    m1.distance_along_m >= m1.shape_length_m - parameters.terminal_zone_m
+                    and m2.distance_along_m <= parameters.terminal_zone_m
+                )
+                same = "тот же shape" if m1.shape_id == m2.shape_id else "другой shape"
+                boundaries[f"{same}, {'на конечной' if terminal else 'в середине'}"] += 1
+                continue
+            delta = m2.distance_along_m - m1.distance_along_m
+            progress.append(delta)
+            straight = haversine_m(o1.latitude, o1.longitude, o2.latitude, o2.longitude)
+            deviation.append(abs(delta - straight))
+            if o2.timestamp > o1.timestamp:
+                progress_speed.append(delta / (o2.timestamp - o1.timestamp))
     return [
         "",
         f"## 8. Результат matcher `{ALGORITHM_VERSION}`",
@@ -199,8 +232,24 @@ def matcher_section(
         ],
         "",
         f"- confidence сопоставленных наблюдений: {describe(on_route, 3)}",
-        f"- треков: {len(tracks)}; прогонов (run): {len(run_sizes)};"
-        f" наблюдений в прогоне: {describe([float(v) for v in run_sizes.values()], 0)}",
+        f"- offset `matched`, м: {describe([m.offset_m or 0.0 for m in matched])}",
+        f"- `matched` в движении с Δbearing ≥ 135°:"
+        f" {share(sum(b >= 135 for b in moving), len(moving))}",
+        f"- прогонов (run): {len(run_sizes)}; наблюдений в прогоне:"
+        f" {describe([float(v) for v in run_sizes.values()], 0)};"
+        f" прогонов короче 5 наблюдений:"
+        f" {share(sum(v < 5 for v in run_sizes.values()), len(run_sizes))}",
+        "",
+        "Внутри прогона (соседние наблюдения на shape):",
+        "",
+        f"- Δprogress, м: {describe(progress)};"
+        f" < −20 м: {share(sum(d < -20 for d in progress), len(progress))}",
+        f"- |Δprogress − прямое расстояние|, м: {describe(deviation)}",
+        f"- скорость по прогрессу, м/с: {describe(progress_speed)};"
+        f" p99.9={quantile(progress_speed, 0.999) if progress_speed else 0:.1f}",
+        "",
+        "Границы прогонов: "
+        + "; ".join(f"{kind} — {count}" for kind, count in sorted(boundaries.items())),
     ]
 
 
