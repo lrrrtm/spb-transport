@@ -6,6 +6,7 @@ import pytest
 from spb_transport_spark.cassandra_sink import (
     ETA_TABLES,
     POSITION_TABLES,
+    STATIC_TABLES,
     ServingTable,
     configure_cassandra,
 )
@@ -14,7 +15,8 @@ from spb_transport_spark.config import CassandraSettings
 TEMPLATE = Path(__file__).parents[2] / "infra" / "cassandra" / "serving.cql.template"
 PLACEHOLDERS = {"KEYSPACE", "DATACENTER", "REPLICATION_FACTOR"}
 LATEST_TABLES = {"vehicle_latest_by_vehicle", "vehicles_latest_by_route"}
-SERVING_TABLES = (*POSITION_TABLES, *ETA_TABLES)
+EVENT_TABLES = (*POSITION_TABLES, *ETA_TABLES)
+SERVING_TABLES = (*EVENT_TABLES, *STATIC_TABLES)
 
 
 def _render_template() -> str:
@@ -83,9 +85,18 @@ def test_sink_columns_match_schema(table: ServingTable) -> None:
 def test_history_keys_are_deterministic_event_identifiers() -> None:
     tables = _parse_tables(_render_template())
 
-    for table in SERVING_TABLES:
+    for table in EVENT_TABLES:
         if table.name not in LATEST_TABLES:
             assert "event_id" in tables[table.name][1]
+
+
+def test_static_tables_are_keyed_by_feed_version() -> None:
+    tables = _parse_tables(_render_template())
+
+    for table in STATIC_TABLES:
+        if table.name != "static_feed_current":
+            assert "static_feed_version" in tables[table.name][1]
+    assert STATIC_TABLES[-1].name == "static_feed_current"
 
 
 def test_only_latest_tables_expire() -> None:

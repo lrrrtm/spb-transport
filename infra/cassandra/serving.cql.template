@@ -66,3 +66,35 @@ CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.eta_history_by_vehicle_day (
   forecasts_json text,
   PRIMARY KEY ((vehicle_id, collected_date), collected_at, event_id)
 ) WITH CLUSTERING ORDER BY (collected_at DESC, event_id ASC);
+
+CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.static_feed_current (
+  feed text PRIMARY KEY,
+  static_feed_version text,
+  published_at timestamp
+);
+
+CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.routes_by_feed (
+  static_feed_version text,
+  route_id text,
+  agency_id text,
+  route_short_name text,
+  route_long_name text,
+  route_type int,
+  PRIMARY KEY ((static_feed_version), route_id)
+);
+
+CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.stops_by_route (
+  static_feed_version text,
+  route_id text,
+  shape_id text,
+  stop_index int,
+  direction_id int,
+  pattern_id text,
+  stop_id text,
+  stop_code text,
+  stop_name text,
+  stop_lat double,
+  stop_lon double,
+  distance_along_m double,
+  PRIMARY KEY ((static_feed_version, route_id), shape_id, stop_index)
+);
