@@ -67,6 +67,44 @@ ETA_TABLES = (
 )
 
 
+STATIC_TABLES = (
+    ServingTable(
+        "routes_by_feed",
+        (
+            "static_feed_version",
+            "route_id",
+            "agency_id",
+            "route_short_name",
+            "route_long_name",
+            "route_type",
+        ),
+        expiring=False,
+    ),
+    ServingTable(
+        "stops_by_route",
+        (
+            "static_feed_version",
+            "route_id",
+            "shape_id",
+            "stop_index",
+            "direction_id",
+            "pattern_id",
+            "stop_id",
+            "stop_code",
+            "stop_name",
+            "stop_lat",
+            "stop_lon",
+            "distance_along_m",
+        ),
+        expiring=False,
+    ),
+    # Written last: switching the pointer publishes a fully written feed version.
+    ServingTable(
+        "static_feed_current", ("feed", "static_feed_version", "published_at"), expiring=False
+    ),
+)
+
+
 def configure_cassandra(builder: Any, settings: CassandraSettings) -> Any:
     builder = (
         builder.config("spark.cassandra.connection.host", settings.host)
@@ -80,14 +118,18 @@ def configure_cassandra(builder: Any, settings: CassandraSettings) -> Any:
     return builder
 
 
-def _write(frame: DataFrame, settings: CassandraSettings, table: ServingTable) -> None:
+def _write(
+    frame: DataFrame, settings: CassandraSettings, table: ServingTable, *, writetime: bool = True
+) -> None:
+    columns = (*table.columns, WRITETIME_COLUMN) if writetime else table.columns
     writer = (
-        frame.select(*table.columns, WRITETIME_COLUMN)
+        frame.select(*columns)
         .write.format(CASSANDRA_FORMAT)
         .option("keyspace", settings.keyspace)
         .option("table", table.name)
-        .option("writetime", WRITETIME_COLUMN)
     )
+    if writetime:
+        writer = writer.option("writetime", WRITETIME_COLUMN)
     if table.expiring:
         writer = writer.option("ttl", str(settings.latest_ttl_seconds))
     writer.mode("append").save()
@@ -117,3 +159,8 @@ def write_eta_history(frame: DataFrame, settings: CassandraSettings) -> None:
     )
     for table in ETA_TABLES:
         _write(rows, settings, table)
+
+
+def write_static_table(frame: DataFrame, settings: CassandraSettings, table: ServingTable) -> None:
+    """Static metadata keyed by feed version: rewriting the same version is idempotent."""
+    _write(frame, settings, table, writetime=False)
