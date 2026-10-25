@@ -21,31 +21,6 @@ def required_starting_offsets() -> str:
     return value
 
 
-@dataclass(frozen=True)
-class RawArchiveSettings:
-    kafka_bootstrap_servers: str
-    kafka_topic: str
-    starting_offsets: str
-    raw_path: str
-    quarantine_path: str
-    checkpoint_path: str
-    trigger_interval: str
-
-    @classmethod
-    def from_env(cls) -> "RawArchiveSettings":
-        kafka_bootstrap_servers = required("KAFKA_BOOTSTRAP_SERVERS")
-        starting_offsets = required_starting_offsets()
-        return cls(
-            kafka_bootstrap_servers=kafka_bootstrap_servers,
-            kafka_topic=required("KAFKA_RAW_RESPONSE_TOPIC"),
-            starting_offsets=starting_offsets,
-            raw_path=required("HDFS_RAW_REALTIME_PATH"),
-            quarantine_path=required("HDFS_RAW_QUARANTINE_PATH"),
-            checkpoint_path=required("HDFS_RAW_CHECKPOINT_PATH"),
-            trigger_interval=required("SPARK_TRIGGER_INTERVAL"),
-        )
-
-
 def required_positive_int(name: str) -> int:
     value = required(name)
     try:
@@ -55,6 +30,71 @@ def required_positive_int(name: str) -> int:
     if parsed <= 0:
         raise ValueError(f"{name} must be a positive integer")
     return parsed
+
+
+def required_bool(name: str) -> bool:
+    value = required(name).strip().lower()
+    if value not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false")
+    return value == "true"
+
+
+@dataclass(frozen=True)
+class KafkaSourceSettings:
+    """Options shared by every Structured Streaming Kafka source."""
+
+    bootstrap_servers: str
+    topic: str
+    starting_offsets: str
+    fail_on_data_loss: bool
+    max_offsets_per_trigger: int
+
+    @classmethod
+    def from_env(cls, topic_variable: str) -> "KafkaSourceSettings":
+        bootstrap_servers = required("KAFKA_BOOTSTRAP_SERVERS")
+        starting_offsets = required_starting_offsets()
+        topic = required(topic_variable)
+        fail_on_data_loss = required_bool("SPARK_KAFKA_FAIL_ON_DATA_LOSS")
+        return cls(
+            bootstrap_servers=bootstrap_servers,
+            topic=topic,
+            starting_offsets=starting_offsets,
+            fail_on_data_loss=fail_on_data_loss,
+            max_offsets_per_trigger=required_positive_int("SPARK_KAFKA_MAX_OFFSETS_PER_TRIGGER"),
+        )
+
+    def reader_options(self) -> dict[str, str]:
+        return {
+            "kafka.bootstrap.servers": self.bootstrap_servers,
+            "subscribe": self.topic,
+            "startingOffsets": self.starting_offsets,
+            # With a bounded Kafka retention a stopped stream can resume from offsets that are
+            # already deleted. false skips them (the data is gone either way) instead of
+            # crash-looping; true stops the job so the loss is noticed.
+            "failOnDataLoss": str(self.fail_on_data_loss).lower(),
+            # Bounds a catch-up batch after downtime so it does not read the whole backlog.
+            "maxOffsetsPerTrigger": str(self.max_offsets_per_trigger),
+        }
+
+
+@dataclass(frozen=True)
+class RawArchiveSettings:
+    kafka: KafkaSourceSettings
+    raw_path: str
+    quarantine_path: str
+    checkpoint_path: str
+    trigger_interval: str
+
+    @classmethod
+    def from_env(cls) -> "RawArchiveSettings":
+        kafka = KafkaSourceSettings.from_env("KAFKA_RAW_RESPONSE_TOPIC")
+        return cls(
+            kafka=kafka,
+            raw_path=required("HDFS_RAW_REALTIME_PATH"),
+            quarantine_path=required("HDFS_RAW_QUARANTINE_PATH"),
+            checkpoint_path=required("HDFS_RAW_CHECKPOINT_PATH"),
+            trigger_interval=required("SPARK_TRIGGER_INTERVAL"),
+        )
 
 
 @dataclass(frozen=True)
@@ -89,9 +129,7 @@ class CassandraSettings:
 
 @dataclass(frozen=True)
 class PositionStreamSettings:
-    kafka_bootstrap_servers: str
-    kafka_topic: str
-    starting_offsets: str
+    kafka: KafkaSourceSettings
     trigger_interval: str
     watermark: str
     max_source_age_seconds: int
@@ -103,12 +141,9 @@ class PositionStreamSettings:
 
     @classmethod
     def from_env(cls) -> "PositionStreamSettings":
-        kafka_bootstrap_servers = required("KAFKA_BOOTSTRAP_SERVERS")
-        starting_offsets = required_starting_offsets()
+        kafka = KafkaSourceSettings.from_env("KAFKA_VEHICLE_POSITION_TOPIC")
         return cls(
-            kafka_bootstrap_servers=kafka_bootstrap_servers,
-            kafka_topic=required("KAFKA_VEHICLE_POSITION_TOPIC"),
-            starting_offsets=starting_offsets,
+            kafka=kafka,
             trigger_interval=required("SPARK_TRIGGER_INTERVAL"),
             watermark=required("SPARK_POSITION_WATERMARK"),
             max_source_age_seconds=required_positive_int("SPARK_POSITION_MAX_SOURCE_AGE_SECONDS"),
@@ -122,9 +157,7 @@ class PositionStreamSettings:
 
 @dataclass(frozen=True)
 class EtaStreamSettings:
-    kafka_bootstrap_servers: str
-    kafka_topic: str
-    starting_offsets: str
+    kafka: KafkaSourceSettings
     trigger_interval: str
     watermark: str
     history_path: str
@@ -134,12 +167,9 @@ class EtaStreamSettings:
 
     @classmethod
     def from_env(cls) -> "EtaStreamSettings":
-        kafka_bootstrap_servers = required("KAFKA_BOOTSTRAP_SERVERS")
-        starting_offsets = required_starting_offsets()
+        kafka = KafkaSourceSettings.from_env("KAFKA_VEHICLE_ETA_TOPIC")
         return cls(
-            kafka_bootstrap_servers=kafka_bootstrap_servers,
-            kafka_topic=required("KAFKA_VEHICLE_ETA_TOPIC"),
-            starting_offsets=starting_offsets,
+            kafka=kafka,
             trigger_interval=required("SPARK_TRIGGER_INTERVAL"),
             watermark=required("SPARK_ETA_WATERMARK"),
             history_path=required("HDFS_ETA_HISTORY_PATH"),

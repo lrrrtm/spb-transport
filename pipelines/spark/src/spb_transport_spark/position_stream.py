@@ -91,13 +91,7 @@ def start(
         SparkSession.builder.appName("vehicle-position-stream"), settings.cassandra
     ).getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
-    source = (
-        spark.readStream.format("kafka")
-        .option("kafka.bootstrap.servers", settings.kafka_bootstrap_servers)
-        .option("subscribe", settings.kafka_topic)
-        .option("startingOffsets", settings.starting_offsets)
-        .load()
-    )
+    source = spark.readStream.format("kafka").options(**settings.kafka.reader_options()).load()
     classified = classify(source, settings)
     valid = (
         classified.filter(F.col("quarantine_reason").isNull())

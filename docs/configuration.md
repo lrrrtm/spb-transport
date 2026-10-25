@@ -10,6 +10,12 @@
 
 ## Bootstrap infrastructure
 
+Kafka — буфер доставки, а не архив (ADR 0001): долговременная история лежит в HDFS. При
+локальном сборе 24 часов retention достаточно. Если стек остановлен дольше retention, а Spark
+streaming jobs стартуют со старыми checkpoint, offsets из checkpoint уже удалены и job упадёт
+с ошибкой потери данных, если `SPARK_KAFKA_FAIL_ON_DATA_LOSS=true`. Локально задано `false`: job
+пропускает удалённые offsets и продолжает с самых ранних сообщений, оставшихся в Kafka.
+
 | Переменная | Назначение |
 |---|---|
 | `UV_INSECURE_HOST` | Необязательный список package hosts без TLS-проверки только на этапе локальной сборки Python-образов |
@@ -17,6 +23,9 @@
 | `KAFKA_CLUSTER_ID` | Идентификатор локального KRaft cluster |
 | `KAFKA_EXTERNAL_PORT` | Порт Kafka на host |
 | `KAFKA_MESSAGE_MAX_BYTES` | Максимальный размер raw response в Kafka broker |
+| `KAFKA_LOG_RETENTION_HOURS` | Сколько часов Kafka хранит сообщения (broker default для всех topics) |
+| `KAFKA_LOG_SEGMENT_BYTES` | Размер сегмента лога; удаляются только целые сегменты |
+| `KAFKA_LOG_ROLL_HOURS` | Максимальный возраст активного сегмента: без него сегмент 1 ГБ при малом трафике не закрывается и retention не срабатывает |
 | `HADOOP_IMAGE` | Закреплённый образ Hadoop |
 | `HDFS_NAMENODE_RPC_PORT` | NameNode RPC на host |
 | `HDFS_NAMENODE_HTTP_PORT` | NameNode UI на host |
@@ -86,6 +95,11 @@ HTTP timeout и retry-параметры обязательны: collector не 
 ## Raw archive Spark job
 
 - `SPARK_KAFKA_STARTING_OFFSETS` — только `earliest` или `latest`;
+- `SPARK_KAFKA_FAIL_ON_DATA_LOSS` — `true` или `false`, общий для всех streaming jobs. При `false`
+  job пропускает offsets, которые Kafka уже удалила по retention, и продолжает с самых ранних
+  оставшихся; при `true` останавливается, чтобы потеря была замечена;
+- `SPARK_KAFKA_MAX_OFFSETS_PER_TRIGGER` — максимум сообщений в одном micro-batch: ограничивает
+  память при догонке накопившегося backlog после простоя;
 - `SPARK_TRIGGER_INTERVAL` — интервал micro-batch в синтаксисе Spark;
 - `HDFS_RAW_REALTIME_PATH` — Parquet-архив валидных raw envelope;
 - `HDFS_RAW_QUARANTINE_PATH` — Parquet для ошибок контракта, checksum и protobuf;
