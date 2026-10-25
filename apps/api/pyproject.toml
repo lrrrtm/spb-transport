@@ -10,6 +10,9 @@ dependencies = [
   "cassandra-driver>=3.30,<4",
   "fastapi>=0.115,<1",
   "pydantic-settings>=2.10,<3",
+  # The driver needs an event loop: libev ships in Linux/macOS wheels, Windows falls back to
+  # asyncore, removed from the standard library in Python 3.12.
+  "pyasyncore>=1.0.4,<2; sys_platform == 'win32'",
   "uvicorn>=0.30,<1",
 ]
 
