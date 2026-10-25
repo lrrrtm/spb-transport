@@ -51,6 +51,8 @@ def _set_position_environment(monkeypatch: MonkeyPatch) -> None:
         "KAFKA_BOOTSTRAP_SERVERS": "kafka:29092",
         "KAFKA_VEHICLE_POSITION_TOPIC": "vehicle-position.v1",
         "SPARK_KAFKA_STARTING_OFFSETS": "earliest",
+        "SPARK_KAFKA_FAIL_ON_DATA_LOSS": "false",
+        "SPARK_KAFKA_MAX_OFFSETS_PER_TRIGGER": "200000",
         "SPARK_TRIGGER_INTERVAL": "10 seconds",
         "SPARK_POSITION_WATERMARK": "10 minutes",
         "SPARK_POSITION_MAX_SOURCE_AGE_SECONDS": "300",
@@ -89,6 +91,8 @@ def test_eta_stream_settings_load_explicit_values(monkeypatch: MonkeyPatch) -> N
         "KAFKA_BOOTSTRAP_SERVERS": "kafka:29092",
         "KAFKA_VEHICLE_ETA_TOPIC": "vehicle-eta.v1",
         "SPARK_KAFKA_STARTING_OFFSETS": "earliest",
+        "SPARK_KAFKA_FAIL_ON_DATA_LOSS": "false",
+        "SPARK_KAFKA_MAX_OFFSETS_PER_TRIGGER": "200000",
         "SPARK_TRIGGER_INTERVAL": "10 seconds",
         "SPARK_ETA_WATERMARK": "1 hour",
         "HDFS_ETA_HISTORY_PATH": "hdfs://namenode/processed/eta",
@@ -100,7 +104,7 @@ def test_eta_stream_settings_load_explicit_values(monkeypatch: MonkeyPatch) -> N
 
     settings = EtaStreamSettings.from_env()
 
-    assert settings.kafka_topic == "vehicle-eta.v1"
+    assert settings.kafka.topic == "vehicle-eta.v1"
     assert settings.watermark == "1 hour"
 
 
@@ -110,3 +114,31 @@ def test_cassandra_credentials_must_be_set_together(monkeypatch: MonkeyPatch) ->
 
     with raises(ValueError, match="must be set together"):
         CassandraSettings.from_env()
+
+
+def test_kafka_source_options_skip_lost_offsets_and_bound_catch_up(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    _set_position_environment(monkeypatch)
+
+    options = PositionStreamSettings.from_env().kafka.reader_options()
+
+    assert options == {
+        "kafka.bootstrap.servers": "kafka:29092",
+        "subscribe": "vehicle-position.v1",
+        "startingOffsets": "earliest",
+        "failOnDataLoss": "false",
+        "maxOffsetsPerTrigger": "200000",
+    }
+
+
+def test_kafka_source_settings_validate_new_values(monkeypatch: MonkeyPatch) -> None:
+    _set_position_environment(monkeypatch)
+    monkeypatch.setenv("SPARK_KAFKA_FAIL_ON_DATA_LOSS", "maybe")
+    with raises(ValueError, match="SPARK_KAFKA_FAIL_ON_DATA_LOSS"):
+        PositionStreamSettings.from_env()
+
+    _set_position_environment(monkeypatch)
+    monkeypatch.setenv("SPARK_KAFKA_MAX_OFFSETS_PER_TRIGGER", "0")
+    with raises(ValueError, match="SPARK_KAFKA_MAX_OFFSETS_PER_TRIGGER"):
+        PositionStreamSettings.from_env()

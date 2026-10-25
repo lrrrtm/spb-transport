@@ -13,8 +13,8 @@
 Kafka — буфер доставки, а не архив (ADR 0001): долговременная история лежит в HDFS. При
 локальном сборе 24 часов retention достаточно. Если стек остановлен дольше retention, а Spark
 streaming jobs стартуют со старыми checkpoint, offsets из checkpoint уже удалены и job упадёт
-с ошибкой потери данных; в этом случае удалите checkpoints соответствующего job в HDFS — данные
-за время простоя всё равно не были собраны.
+с ошибкой потери данных, если `SPARK_KAFKA_FAIL_ON_DATA_LOSS=true`. Локально задано `false`: job
+пропускает удалённые offsets и продолжает с самых ранних сообщений, оставшихся в Kafka.
 
 | Переменная | Назначение |
 |---|---|
@@ -95,6 +95,11 @@ HTTP timeout и retry-параметры обязательны: collector не 
 ## Raw archive Spark job
 
 - `SPARK_KAFKA_STARTING_OFFSETS` — только `earliest` или `latest`;
+- `SPARK_KAFKA_FAIL_ON_DATA_LOSS` — `true` или `false`, общий для всех streaming jobs. При `false`
+  job пропускает offsets, которые Kafka уже удалила по retention, и продолжает с самых ранних
+  оставшихся; при `true` останавливается, чтобы потеря была замечена;
+- `SPARK_KAFKA_MAX_OFFSETS_PER_TRIGGER` — максимум сообщений в одном micro-batch: ограничивает
+  память при догонке накопившегося backlog после простоя;
 - `SPARK_TRIGGER_INTERVAL` — интервал micro-batch в синтаксисе Spark;
 - `HDFS_RAW_REALTIME_PATH` — Parquet-архив валидных raw envelope;
 - `HDFS_RAW_QUARANTINE_PATH` — Parquet для ошибок контракта, checksum и protobuf;
