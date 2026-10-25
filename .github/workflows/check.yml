@@ -37,6 +37,34 @@ jobs:
       - run: uv run --group spark mypy pipelines/spark/src tests
       - run: uv run --group spark pytest -m spark
 
+  cassandra:
+    runs-on: ubuntu-latest
+    services:
+      cassandra:
+        image: cassandra:5.0.5
+        ports:
+          - 9042:9042
+        env:
+          CASSANDRA_DC: datacenter1
+          CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+          MAX_HEAP_SIZE: 512M
+          HEAP_NEWSIZE: 128M
+        options: >-
+          --health-cmd "cqlsh -e 'DESCRIBE CLUSTER'"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run pytest -m cassandra
+        env:
+          CASSANDRA_TEST_HOST: 127.0.0.1
+          CASSANDRA_TEST_DATACENTER: datacenter1
+
   compose:
     runs-on: ubuntu-latest
     steps:

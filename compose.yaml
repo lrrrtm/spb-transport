@@ -569,6 +569,46 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      args:
+        UV_INSECURE_HOST: ${UV_INSECURE_HOST-}
+    image: spb-transport-api:local
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      CASSANDRA_HOST: ${CASSANDRA_HOST:?CASSANDRA_HOST is required}
+      CASSANDRA_NATIVE_PORT: ${CASSANDRA_NATIVE_PORT:?CASSANDRA_NATIVE_PORT is required}
+      CASSANDRA_DATACENTER: ${CASSANDRA_DATACENTER:?CASSANDRA_DATACENTER is required}
+      CASSANDRA_KEYSPACE: ${CASSANDRA_KEYSPACE:?CASSANDRA_KEYSPACE is required}
+      CASSANDRA_USERNAME: ${CASSANDRA_USERNAME-}
+      CASSANDRA_PASSWORD: ${CASSANDRA_PASSWORD-}
+      API_CASSANDRA_REQUEST_TIMEOUT_SECONDS: ${API_CASSANDRA_REQUEST_TIMEOUT_SECONDS:?API_CASSANDRA_REQUEST_TIMEOUT_SECONDS is required}
+      API_VEHICLE_FRESHNESS_SECONDS: ${API_VEHICLE_FRESHNESS_SECONDS:?API_VEHICLE_FRESHNESS_SECONDS is required}
+      API_DEFAULT_PAGE_SIZE: ${API_DEFAULT_PAGE_SIZE:?API_DEFAULT_PAGE_SIZE is required}
+      API_MAX_PAGE_SIZE: ${API_MAX_PAGE_SIZE:?API_MAX_PAGE_SIZE is required}
+      API_HISTORY_MAX_RANGE_HOURS: ${API_HISTORY_MAX_RANGE_HOURS:?API_HISTORY_MAX_RANGE_HOURS is required}
+      API_HISTORY_DEFAULT_RANGE_MINUTES: ${API_HISTORY_DEFAULT_RANGE_MINUTES:?API_HISTORY_DEFAULT_RANGE_MINUTES is required}
+      API_CORS_ORIGINS: ${API_CORS_ORIGINS?API_CORS_ORIGINS must be set (may be empty)}
+    ports:
+      - "${API_EXTERNAL_PORT:?API_EXTERNAL_PORT is required}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   cassandra:
     image: ${CASSANDRA_IMAGE:?CASSANDRA_IMAGE is required}
     hostname: cassandra

@@ -31,6 +31,7 @@ Processed positions сохраняют поля `vehicle-position.v1`, Kafka met
 | Job | Вход | Выход в HDFS | Partitioning | Идемпотентность |
 |---|---|---|---|---|
 | `route_match_batch.py` (T09) | processed positions за `event_date` + static `trips`, `shapes` | silver `vehicle_route_matches` | `algorithm_version/event_date` | dynamic overwrite партиции, детерминированные `track_id`/`run_id` |
+| `static_serving.py` (T11) | static `routes`, `stops`, `trips`, `shapes`, `stop_times` одной версии | Cassandra `routes_by_feed`, `stops_by_route`, `static_feed_current` | ключ — `static_feed_version` | повтор версии перезаписывает те же строки; указатель версии пишется последним |
 | `stop_events_batch.py` (T10) | `matched` строки `vehicle_route_matches` + static `trips`, `shapes`, `stops`, `stop_times` | `shape_stop_patterns`, `stop_arrival_events`, `segment_traversals` | patterns — `algorithm_version/static_feed_version`; события — `algorithm_version/event_date` | dynamic overwrite партиций, `event_id` из run, pattern и индекса остановки |
 
 Batch jobs запускаются по порядку для одного дня и одной версии static feed:

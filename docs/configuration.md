@@ -165,6 +165,9 @@ Schema bootstrap создаёт только таблицы, для которы
 | `vehicles_latest_by_route` | Текущая карта машин маршрута | Один маршрут |
 | `vehicle_positions_by_vehicle_day` | История машины за день | `(vehicle_id, event_date)` |
 | `eta_history_by_vehicle_day` | История ETA машины за день | `(vehicle_id, collected_date)` |
+| `static_feed_current` | Опубликованная версия static GTFS | Одна строка |
+| `routes_by_feed` | Список маршрутов версии feed | `static_feed_version`: ≈ 500 строк |
+| `stops_by_route` | Остановки вариантов маршрута по порядку | `(static_feed_version, route_id)`: ≈ 2 × 30 строк |
 
 При polling раз в 10 секунд position partition содержит не более 8 640 наблюдений в день до
 дедупликации; при ETA polling раз в 30 секунд — не более 2 880 snapshots. Это ограничивает
@@ -175,6 +178,36 @@ Schema bootstrap создаёт только таблицы, для которы
 source event time как Cassandra writetime. Поэтому более старое повторно обработанное событие не
 перезаписывает новое состояние. Пустые credentials разрешены в локальном no-auth Compose;
 если задано одно из двух значений, конфигурация завершается ошибкой.
+
+## Static metadata для API (T11)
+
+`spark-static-serving` публикует в Cassandra маршруты и остановки одной версии static GTFS:
+`routes_by_feed`, `stops_by_route`, затем `static_feed_current` (переключение версии последним).
+Использует `HDFS_STATIC_PROCESSED_PATH`, `STOP_EVENT_STOP_MAX_OFFSET_M` (та же проекция остановок,
+что в T10) и `CASSANDRA_*`. Запуск после `spark-static-gtfs`:
+
+```shell
+docker compose --profile batch run --rm spark-static-serving --static-version <sha256>
+```
+
+## FastAPI (T11)
+
+| Переменная | Назначение |
+|---|---|
+| `API_EXTERNAL_PORT` | Порт API на host (в контейнере — 8000) |
+| `CASSANDRA_HOST`, `CASSANDRA_NATIVE_PORT`, `CASSANDRA_DATACENTER`, `CASSANDRA_KEYSPACE` | Подключение к serving layer |
+| `CASSANDRA_USERNAME`, `CASSANDRA_PASSWORD` | Необязательная пара credentials |
+| `API_CASSANDRA_REQUEST_TIMEOUT_SECONDS` | Таймаут подключения и одного запроса к Cassandra |
+| `API_VEHICLE_FRESHNESS_SECONDS` | Позиции старше порога не считаются текущими |
+| `API_DEFAULT_PAGE_SIZE`, `API_MAX_PAGE_SIZE` | Размер страницы списков |
+| `API_HISTORY_MAX_RANGE_HOURS` | Максимальный диапазон истории в одном запросе (≤ 72) |
+| `API_HISTORY_DEFAULT_RANGE_MINUTES` | Диапазон истории, если `from` не задан |
+| `API_CORS_ORIGINS` | Разрешённые origins через запятую; пусто — CORS выключен |
+
+Все значения, кроме credentials, обязательны и проверяются при старте. API стартует и при
+недоступной Cassandra: `/health` отвечает 200, `/ready` и запросы к данным — 503, подключение
+повторяется на следующем запросе. Контракт endpoints: [`data-contracts/api.md`](data-contracts/api.md);
+OpenAPI — `http://localhost:${API_EXTERNAL_PORT}/docs`.
 
 ## Static GTFS ingestion
 

@@ -1,4 +1,4 @@
-.PHONY: install format lint typecheck test test-spark compose-check check
+.PHONY: install format lint typecheck test test-spark test-cassandra compose-check check
 
 install:
 	uv --system-certs sync --locked
@@ -19,6 +19,9 @@ test:
 
 test-spark:
 	uv --system-certs run --group spark pytest -m spark
+
+test-cassandra:
+	uv --system-certs run pytest -m cassandra
 
 compose-check:
 	docker compose --env-file .env.example config --quiet
