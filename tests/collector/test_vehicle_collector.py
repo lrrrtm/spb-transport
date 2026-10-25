@@ -1,9 +1,12 @@
 import asyncio
+import json
+from datetime import UTC, datetime
 from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import httpx
 from google.transit import gtfs_realtime_pb2  # type: ignore[import-untyped]
+from spb_transport_collector import collector as collector_module
 from spb_transport_collector.collector import VehicleCollector
 from spb_transport_collector.http_client import GtfsHttpClient, RetryPolicy
 from spb_transport_collector.kafka import KafkaPublisher
@@ -165,3 +168,77 @@ def test_failed_vehicle_trips_batch_does_not_skip_later_batches() -> None:
     ]
     assert len(raw_values) == 3
     assert b'"decode_error":"DecodeError"' in raw_values[1]
+
+
+def test_collection_time_never_precedes_request_time_when_wall_clock_steps_back(
+    monkeypatch: Any,
+) -> None:
+    # The old code read the wall clock twice; here the second reading would be 5 s earlier.
+    moments = iter(
+        [
+            datetime(2026, 10, 3, 15, 19, 45, tzinfo=UTC),
+            datetime(2026, 10, 3, 15, 19, 40, tzinfo=UTC),
+        ]
+    )
+
+    class SteppingBackClock:
+        @staticmethod
+        def now(tz: object = None) -> datetime:
+            return next(moments)
+
+    monkeypatch.setattr(collector_module, "datetime", SteppingBackClock)
+    producer: Any = AsyncMock()
+    http_client = httpx.AsyncClient(
+        base_url="https://example.test/realtime/",
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, content=valid_feed(), request=request)
+        ),
+    )
+    collector = VehicleCollector(
+        GtfsHttpClient(http_client, RetryPolicy(1, 0, 0, 0)),
+        KafkaPublisher(producer, "vehicle-position.v1", "vehicle-eta.v1", "raw.v1"),
+        vehicle_poll_interval_seconds=1,
+        vehicle_trips_poll_interval_seconds=1,
+        vehicle_trips_batch_size=10,
+    )
+
+    async def scenario() -> int:
+        async with http_client:
+            return await collector.collect_positions_once()
+
+    assert asyncio.run(scenario()) == 1
+    raw = producer.send_and_wait.await_args_list[0]
+    payload = raw.kwargs.get("value") or raw.args[1]
+    envelope = json.loads(payload)
+    collected_at = datetime.fromisoformat(envelope["collected_at"])
+    assert collected_at >= datetime.fromisoformat(envelope["requested_at"])
+
+
+def test_unexpected_error_in_eta_cycle_does_not_stop_the_collector() -> None:
+    stop_event = asyncio.Event()
+    calls = 0
+
+    producer: Any = AsyncMock()
+    collector = VehicleCollector(
+        GtfsHttpClient(
+            httpx.AsyncClient(base_url="https://example.test/"), RetryPolicy(1, 0, 0, 0)
+        ),
+        KafkaPublisher(producer, "vehicle-position.v1", "vehicle-eta.v1", "raw.v1"),
+        vehicle_poll_interval_seconds=1,
+        vehicle_trips_poll_interval_seconds=0.001,
+        vehicle_trips_batch_size=10,
+    )
+
+    async def failing_once() -> int:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ValueError("unexpected")
+        stop_event.set()
+        return 0
+
+    collector.collect_eta_once = failing_once  # type: ignore[method-assign]
+
+    asyncio.run(collector._run_eta(stop_event))
+
+    assert calls == 2
