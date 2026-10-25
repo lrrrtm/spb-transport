@@ -39,6 +39,8 @@ Batch jobs запускаются по порядку для одного дня
 
 Интеграционные тесты batch jobs запускают локальный Spark (`make test-spark`, нужна Java 17);
 обычный `make check` их пропускает, в CI они идут отдельным job `spark`.
+На Windows локальному Spark нужен `HADOOP_HOME` с `winutils.exe`; без него тесты
+пропускаются с пояснением — запускайте их в WSL (`make test-spark`) или полагайтесь на CI.
 
 Matching выполняется на чистом Python (`route_matching.py`, `shape_geometry.py`) внутри
 `groupByKey` по `vehicle_id`: последовательность наблюдений машины нужна целиком. Shapes
