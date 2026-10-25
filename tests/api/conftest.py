@@ -1,5 +1,9 @@
 import pytest
+from fastapi.testclient import TestClient
+from spb_transport_api.app import create_app
 from spb_transport_api.config import ApiSettings
+
+from api.fakes import NOW, FakeRepository
 
 ENVIRONMENT = {
     "API_HOST": "0.0.0.0",
@@ -25,3 +29,13 @@ def settings(monkeypatch: pytest.MonkeyPatch) -> ApiSettings:
     for name, value in ENVIRONMENT.items():
         monkeypatch.setenv(name, value)
     return ApiSettings()  # type: ignore[call-arg]
+
+
+@pytest.fixture
+def repository() -> FakeRepository:
+    return FakeRepository()
+
+
+@pytest.fixture
+def client(settings: ApiSettings, repository: FakeRepository) -> TestClient:
+    return TestClient(create_app(settings, lambda _: repository, clock=lambda: NOW))
