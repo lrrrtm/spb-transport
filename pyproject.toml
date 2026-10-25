@@ -13,8 +13,11 @@ spark = ["pyspark==3.5.9"]
 members = ["apps/api", "apps/collector", "packages/contracts", "pipelines/spark"]
 
 [tool.pytest.ini_options]
-addopts = "-q -m 'not spark'"
-markers = ["spark: needs local PySpark and Java 17 (make test-spark)"]
+addopts = "-q -m 'not spark and not cassandra'"
+markers = [
+  "spark: needs local PySpark and Java 17 (make test-spark)",
+  "cassandra: needs a running Cassandra in CASSANDRA_TEST_HOST (make test-cassandra)",
+]
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
 testpaths = ["tests"]
 
