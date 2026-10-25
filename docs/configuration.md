@@ -10,6 +10,12 @@
 
 ## Bootstrap infrastructure
 
+Kafka — буфер доставки, а не архив (ADR 0001): долговременная история лежит в HDFS. При
+локальном сборе 24 часов retention достаточно. Если стек остановлен дольше retention, а Spark
+streaming jobs стартуют со старыми checkpoint, offsets из checkpoint уже удалены и job упадёт
+с ошибкой потери данных; в этом случае удалите checkpoints соответствующего job в HDFS — данные
+за время простоя всё равно не были собраны.
+
 | Переменная | Назначение |
 |---|---|
 | `UV_INSECURE_HOST` | Необязательный список package hosts без TLS-проверки только на этапе локальной сборки Python-образов |
@@ -17,6 +23,9 @@
 | `KAFKA_CLUSTER_ID` | Идентификатор локального KRaft cluster |
 | `KAFKA_EXTERNAL_PORT` | Порт Kafka на host |
 | `KAFKA_MESSAGE_MAX_BYTES` | Максимальный размер raw response в Kafka broker |
+| `KAFKA_LOG_RETENTION_HOURS` | Сколько часов Kafka хранит сообщения (broker default для всех topics) |
+| `KAFKA_LOG_SEGMENT_BYTES` | Размер сегмента лога; удаляются только целые сегменты |
+| `KAFKA_LOG_ROLL_HOURS` | Максимальный возраст активного сегмента: без него сегмент 1 ГБ при малом трафике не закрывается и retention не срабатывает |
 | `HADOOP_IMAGE` | Закреплённый образ Hadoop |
 | `HDFS_NAMENODE_RPC_PORT` | NameNode RPC на host |
 | `HDFS_NAMENODE_HTTP_PORT` | NameNode UI на host |
