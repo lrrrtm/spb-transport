@@ -1,10 +1,10 @@
 import asyncio
 import logging
+import time
 from contextlib import suppress
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
-from aiokafka.errors import KafkaError  # type: ignore[import-untyped]
 from google.protobuf.message import DecodeError
 from spb_transport_contracts import RawEndpoint
 
@@ -33,10 +33,23 @@ class VehicleCollector:
         self._vehicle_trips_batch_size = vehicle_trips_batch_size
         self._active_vehicle_ids: tuple[str, ...] = ()
 
-    async def collect_positions_once(self) -> int:
+    async def _timed_get(
+        self, endpoint: str, params: httpx.QueryParams | None = None
+    ) -> tuple[httpx.Response, datetime, datetime]:
+        """GET with request and collection times that never run backwards.
+
+        The wall clock of a container can step back (for example when Docker Desktop resyncs
+        the VM clock after sleep). The duration is measured on the monotonic clock, so
+        `collected_at >= requested_at` holds even then.
+        """
         requested_at = datetime.now(UTC)
-        response = await self._http_client.get("vehicle")
-        collected_at = datetime.now(UTC)
+        started = time.monotonic()
+        response = await self._http_client.get(endpoint, params=params)
+        collected_at = requested_at + timedelta(seconds=time.monotonic() - started)
+        return response, requested_at, collected_at
+
+    async def collect_positions_once(self) -> int:
+        response, requested_at, collected_at = await self._timed_get("vehicle")
         try:
             result = parse_vehicle_feed(response.content, collected_at)
         except DecodeError as error:
@@ -74,9 +87,7 @@ class VehicleCollector:
             vehicle_ids = self._active_vehicle_ids[start : start + self._vehicle_trips_batch_size]
             params = httpx.QueryParams([("vehicleIDs", vehicle_id) for vehicle_id in vehicle_ids])
             try:
-                requested_at = datetime.now(UTC)
-                response = await self._http_client.get("vehicletrips", params=params)
-                collected_at = datetime.now(UTC)
+                response, requested_at, collected_at = await self._timed_get("vehicletrips", params)
                 try:
                     result = parse_eta_feed(response.content, collected_at)
                 except DecodeError as error:
@@ -133,7 +144,7 @@ class VehicleCollector:
         while not stop_event.is_set():
             try:
                 await self.collect_positions_once()
-            except (DecodeError, httpx.HTTPError, KafkaError) as error:
+            except Exception as error:  # one failed cycle must not stop the collector
                 logger.error(
                     "GTFS vehicle collection cycle failed",
                     extra={
@@ -152,11 +163,11 @@ class VehicleCollector:
         while not stop_event.is_set():
             try:
                 await self.collect_eta_once()
-            except KafkaError as error:
+            except Exception as error:  # one failed cycle must not stop the collector
                 logger.error(
-                    "GTFS ETA publication cycle failed",
+                    "GTFS ETA collection cycle failed",
                     extra={
-                        "event": "vehicle_eta_publication_failed",
+                        "event": "vehicle_eta_collection_failed",
                         "error": type(error).__name__,
                     },
                     exc_info=True,
