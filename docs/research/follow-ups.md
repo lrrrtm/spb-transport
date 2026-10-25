@@ -69,3 +69,15 @@ uv run python scripts/research/analyze_stop_events_sample.py data/research/route
 5. **Прогон `spark-stop-events` за сутки** — выборка **C**.
    Записать счётчики из лога (`stop_arrivals`, доли `interpolated`/`departure_only`/`stopped`,
    `segment_traversals`) и время job в `stop-arrivals.md`. Эти данные — вход T13.
+
+## T11: FastAPI
+
+1. **Проверка на настоящей Cassandra.** Репозиторий API покрыт тестами на fake session; тест
+   на реальной Cassandra (`tests/cassandra_integration`) запускается в CI job `cassandra` и
+   локально: `docker compose up -d cassandra`, затем
+   `CASSANDRA_TEST_HOST=localhost make test-cassandra`. Если он падает — сначала чинить его.
+2. **Сквозной прогон** — выборка **C**. После суток данных: `spark-static-serving`, затем
+   `docker compose up -d api` и проверить `/ready`, `/api/v1/vehicles`, историю одной машины и
+   `/api/v1/routes/{route_id}/stops` на реальных данных; записать время ответа.
+3. **Окно свежести.** `API_VEHICLE_FRESHNESS_SECONDS=120` при опросе раз в 10 с и p99 интервала
+   35 с (выборка 2026-10-03). Пересмотреть, если в выборке **A** интервалы окажутся длиннее.
