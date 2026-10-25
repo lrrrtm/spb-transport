@@ -4,10 +4,11 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from conftest import VERSION, local_spark
 from pytest import MonkeyPatch
 from spb_transport_spark import route_match_batch, stop_events_batch
 from spb_transport_spark.config import RouteMatchingSettings, StopEventSettings
+
+from spark_integration.spark_lake import VERSION, local_spark
 
 pytestmark = pytest.mark.spark
 

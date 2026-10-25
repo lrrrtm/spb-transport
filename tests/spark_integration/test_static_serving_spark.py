@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import VERSION, local_spark
 from pytest import MonkeyPatch
 from spb_transport_spark import static_serving
 from spb_transport_spark.config import CassandraSettings
+
+from spark_integration.spark_lake import VERSION, local_spark
 
 pytestmark = pytest.mark.spark
 

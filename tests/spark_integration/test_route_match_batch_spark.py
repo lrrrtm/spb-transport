@@ -4,9 +4,10 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from conftest import VERSION, local_spark
 from spb_transport_spark.config import RouteMatchingSettings
 from spb_transport_spark.route_match_batch import run_job
+
+from spark_integration.spark_lake import VERSION, local_spark
 
 pytestmark = pytest.mark.spark
 
