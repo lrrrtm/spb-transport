@@ -1,11 +1,12 @@
 from datetime import date
 
 import pytest
-from api.fakes import page_of
 from pydantic import ValidationError
 from spb_transport_api.config import ApiSettings
 from spb_transport_api.cursor import Cursor, InvalidCursor, decode_cursor, encode_cursor
 from spb_transport_api.paging import PageRequest, read_days
+
+from .fakes import page_of
 
 
 def test_settings_parse_cors_and_empty_credentials(settings: ApiSettings) -> None:
