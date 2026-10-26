@@ -5,8 +5,9 @@
 В репозитории зафиксированы архитектурные решения и контракты, работает realtime collector,
 а raw HTTP responses архивируются через Kafka и Spark Structured Streaming в Parquet/HDFS.
 Batch jobs сопоставляют позиции с маршрутами и строят события у остановок; read-only FastAPI
-(`apps/api`) отдаёт текущий транспорт, историю, ETA и маршруты из Cassandra. Frontend и
-последующая аналитика реализуются отдельными задачами backlog.
+(`apps/api`) отдаёт текущий транспорт, историю, ETA и маршруты из Cassandra. React-интерфейс
+(`apps/web`) показывает актуальный транспорт на карте. Последующая аналитика реализуется
+отдельными задачами backlog.
 
 ## Быстрый старт bootstrap
 
@@ -35,7 +36,7 @@ docker compose down
 
 ## Границы monorepo
 
-- `apps/` — collector, FastAPI (`apps/api`) и frontend по мере начала соответствующих задач;
+- `apps/` — collector, FastAPI (`apps/api`) и React frontend (`apps/web`);
 - `pipelines/` — static GTFS ingestion и Spark jobs;
 - `packages/contracts/` — общие версионированные межсервисные DTO;
 - `infra/` — конфигурация локальной инфраструктуры;

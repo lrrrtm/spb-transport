@@ -578,6 +578,26 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NPM_CONFIG_STRICT_SSL: ${NPM_CONFIG_STRICT_SSL:-true}
+    image: spb-transport-web:local
+    ports:
+      - "${WEB_EXTERNAL_PORT:?WEB_EXTERNAL_PORT is required}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
   api:
     build:
       context: .
