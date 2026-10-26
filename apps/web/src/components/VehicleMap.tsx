@@ -7,11 +7,18 @@ import {
   Map as MapLibreMap,
   type MapLayerMouseEvent,
   NavigationControl,
+  setWorkerUrl,
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 
 import type { VehiclePosition } from "../api/types";
+
+// MapLibre 6 loads its worker from a file next to its own module. Vite bundles the module but does
+// not emit that file, and GeoJSON sources are parsed in the worker, so without an explicit URL the
+// base map renders while the vehicle layer stays empty.
+setWorkerUrl(maplibreWorkerUrl);
 
 const SOURCE_ID = "vehicles";
 const LAYER_ID = "vehicles-points";
