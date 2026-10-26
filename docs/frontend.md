@@ -33,6 +33,12 @@ T12 реализует один desktop-only экран актуального �
 docker compose up -d web
 ```
 
+Эта команда поднимает только web, API и Cassandra. Чтобы на карте появились точки, нужен живой
+поток позиций: collector, Kafka и `spark-position-stream` должны работать прямо сейчас, потому что
+API отдаёт только позиции не старше `API_VEHICLE_FRESHNESS_SECONDS`. Названия маршрутов в фильтре
+появляются после batch-джоба `spark-static-serving`; без него фильтр показывает `route_id`, а карта
+работает.
+
 Интерфейс доступен по адресу `http://localhost:${WEB_EXTERNAL_PORT}`. Nginx проксирует `/api`,
 `/ready` и `/health` в FastAPI, поэтому отдельная CORS-настройка для контейнерного запуска не
 нужна.
