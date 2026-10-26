@@ -14,7 +14,7 @@ import Typography from "@mui/material/Typography";
 import { VehicleSidebar } from "./components/VehicleSidebar";
 import { MapErrorBoundary } from "./components/MapErrorBoundary";
 import { useLiveVehicles } from "./hooks/useLiveVehicles";
-import { filterVehicles, formatUpdatedAt, routeOptions } from "./vehicles";
+import { apiStatusLabel, filterVehicles, formatUpdatedAt, routeOptions } from "./vehicles";
 
 const VehicleMap = lazy(() =>
   import("./components/VehicleMap").then(({ VehicleMap: component }) => ({ default: component })),
@@ -29,7 +29,7 @@ export default function App() {
   const selectedVehicle =
     shownVehicles.find(({ vehicle_id }) => vehicle_id === selectedVehicleId) ?? null;
   const apiReady = readiness?.status === "ready";
-  const apiStatus = apiReady ? "API доступен" : error === null ? "Проверка API" : "Нет соединения";
+  const apiStatus = apiStatusLabel(readiness, error, updatedAt !== null);
 
   function changeRoute(value: string | null) {
     setRouteId(value);

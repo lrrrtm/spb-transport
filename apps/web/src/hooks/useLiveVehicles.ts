@@ -34,27 +34,28 @@ export function useLiveVehicles(): LiveVehiclesState {
     if (hasData.current) setRefreshing(true);
     else setLoading(true);
 
-    try {
-      const [nextVehicles, nextRoutes, nextReadiness] = await Promise.all([
-        fetchAllVehicles(nextController.signal),
-        fetchAllRoutes(nextController.signal),
-        fetchReadiness(nextController.signal),
-      ]);
-      setVehicles(nextVehicles);
-      setRoutes(nextRoutes);
-      setReadiness(nextReadiness);
+    // Vehicles are the only required data: route metadata needs the static GTFS batch job and
+    // /ready answers 503 while Cassandra is degraded, neither should hide positions already served.
+    const [vehiclesResult, routesResult, readinessResult] = await Promise.allSettled([
+      fetchAllVehicles(nextController.signal),
+      fetchAllRoutes(nextController.signal),
+      fetchReadiness(nextController.signal),
+    ]);
+    if (controller.current !== nextController || nextController.signal.aborted) return;
+
+    setReadiness(readinessResult.status === "fulfilled" ? readinessResult.value : null);
+    if (routesResult.status === "fulfilled") setRoutes(routesResult.value);
+    if (vehiclesResult.status === "fulfilled") {
+      setVehicles(vehiclesResult.value);
       setUpdatedAt(new Date());
       setError(null);
       hasData.current = true;
-    } catch (caught) {
-      if (caught instanceof DOMException && caught.name === "AbortError") return;
-      setError(caught instanceof Error ? caught.message : "Не удалось загрузить данные");
-    } finally {
-      if (controller.current === nextController) {
-        setLoading(false);
-        setRefreshing(false);
-      }
+    } else {
+      const reason: unknown = vehiclesResult.reason;
+      setError(reason instanceof Error ? reason.message : "Не удалось загрузить данные");
     }
+    setLoading(false);
+    setRefreshing(false);
   }, []);
 
   useEffect(() => {

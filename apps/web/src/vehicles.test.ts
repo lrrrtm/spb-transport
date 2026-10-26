@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Route, VehiclePosition } from "./api/types";
-import { filterVehicles, routeOptions } from "./vehicles";
+import { apiStatusLabel, filterVehicles, routeOptions } from "./vehicles";
 
 function vehicle(vehicleId: string, routeId: string | null): VehiclePosition {
   return {
@@ -32,8 +32,31 @@ describe("vehicle filters", () => {
     expect(routeOptions(vehicles, routes).map(({ route_id }) => route_id)).toEqual(["2", "10"]);
   });
 
+  it("offers routes without static metadata by their id", () => {
+    const options = routeOptions(vehicles, []);
+    expect(options.map(({ route_id }) => route_id)).toEqual(["2", "10"]);
+    expect(options[0]).toMatchObject({ short_name: null, long_name: null });
+  });
+
   it("filters by route and keeps all vehicles without a selection", () => {
     expect(filterVehicles(vehicles, "10").map(({ vehicle_id }) => vehicle_id)).toEqual(["1"]);
     expect(filterVehicles(vehicles, null)).toBe(vehicles);
+  });
+});
+
+describe("API status", () => {
+  const ready = { status: "ready", cassandra: "ok", static_feed_version: "v", detail: null };
+
+  it("reports a ready API", () => {
+    expect(apiStatusLabel(ready, null, true)).toBe("API доступен");
+  });
+
+  it("does not call the API unreachable while vehicles are served", () => {
+    expect(apiStatusLabel(null, null, true)).toBe("API не готов");
+  });
+
+  it("reports a failed vehicle request and the initial check", () => {
+    expect(apiStatusLabel(null, "HTTP 502", false)).toBe("Нет соединения");
+    expect(apiStatusLabel(null, null, false)).toBe("Проверка API");
   });
 });
