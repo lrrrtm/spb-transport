@@ -133,3 +133,25 @@ CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.segment_metrics_by_route_bucket (
   algorithm_version text,
   PRIMARY KEY ((algorithm_version, static_feed_version, route_id, analysis_start, analysis_end, day_type, hour), direction_id, shape_id, from_stop_index)
 );
+
+CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.anomalies_by_route_day (
+  algorithm_version text,
+  event_date date,
+  route_id text,
+  started_at timestamp,
+  anomaly_id text,
+  anomaly_type text,
+  static_feed_version text,
+  shape_id text,
+  direction_id int,
+  vehicle_id text,
+  related_vehicle_id text,
+  stop_id text,
+  ended_at timestamp,
+  duration_s double,
+  distance_gap_m double,
+  headway_s double,
+  latitude double,
+  longitude double,
+  PRIMARY KEY ((algorithm_version, route_id, event_date), started_at, anomaly_id)
+) WITH CLUSTERING ORDER BY (started_at DESC, anomaly_id ASC);

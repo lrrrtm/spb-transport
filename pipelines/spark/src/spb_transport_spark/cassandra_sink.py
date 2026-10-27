@@ -142,6 +142,31 @@ SEGMENT_METRICS_TABLE = ServingTable(
     expiring=False,
 )
 
+ANOMALIES_TABLE = ServingTable(
+    "anomalies_by_route_day",
+    (
+        "algorithm_version",
+        "event_date",
+        "route_id",
+        "started_at",
+        "anomaly_id",
+        "anomaly_type",
+        "static_feed_version",
+        "shape_id",
+        "direction_id",
+        "vehicle_id",
+        "related_vehicle_id",
+        "stop_id",
+        "ended_at",
+        "duration_s",
+        "distance_gap_m",
+        "headway_s",
+        "latitude",
+        "longitude",
+    ),
+    expiring=False,
+)
+
 
 def configure_cassandra(builder: Any, settings: CassandraSettings) -> Any:
     builder = (
@@ -207,3 +232,8 @@ def write_static_table(frame: DataFrame, settings: CassandraSettings, table: Ser
 def write_segment_metrics(frame: DataFrame, settings: CassandraSettings) -> None:
     """Publish deterministic aggregates; the table primary key makes replay idempotent."""
     _write(frame, settings, SEGMENT_METRICS_TABLE, writetime=False)
+
+
+def write_anomalies(frame: DataFrame, settings: CassandraSettings) -> None:
+    """Publish deterministic anomaly events for route/day queries."""
+    _write(frame, settings, ANOMALIES_TABLE, writetime=False)
