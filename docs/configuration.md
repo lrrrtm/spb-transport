@@ -169,6 +169,18 @@ docker compose --profile batch run --rm spark-stop-events \
     --event-date 2026-10-01 --static-version <sha256>
 ```
 
+## Метрики узких участков Spark job (T13)
+
+`spark-segment-metrics` читает T10 `segment_traversals` за включительный диапазон дат и пишет
+gold Parquet и Cassandra serving. `SEGMENT_METRICS_MIN_OBSERVATIONS`,
+`SEGMENT_METRICS_MAX_GAP_SECONDS` и `SEGMENT_METRICS_MIN_CONFIDENCE` задают качество одного
+прохождения; `SEGMENT_METRICS_MIN_SAMPLES` — минимальную выборку для `enough_data=true`.
+
+```shell
+docker compose --profile batch run --rm spark-segment-metrics \
+    --start-date 2026-10-01 --end-date 2026-10-07
+```
+
 ## Cassandra serving layer
 
 Schema bootstrap создаёт только таблицы, для которых уже есть конкретные query patterns:
@@ -182,6 +194,7 @@ Schema bootstrap создаёт только таблицы, для которы
 | `static_feed_current` | Опубликованная версия static GTFS | Одна строка |
 | `routes_by_feed` | Список маршрутов версии feed | `static_feed_version`: ≈ 500 строк |
 | `stops_by_route` | Остановки вариантов маршрута по порядку | `(static_feed_version, route_id)`: ≈ 2 × 30 строк |
+| `segment_metrics_by_route_bucket` | Метрики участков маршрута по типу дня и часу | Один маршрут и час выбранного диапазона анализа |
 
 При polling раз в 10 секунд position partition содержит не более 8 640 наблюдений в день до
 дедупликации; при ETA polling раз в 30 секунд — не более 2 880 snapshots. Это ограничивает

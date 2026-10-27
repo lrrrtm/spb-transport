@@ -276,3 +276,32 @@ class StopEventSettings:
                 }
             ),
         )
+
+
+@dataclass(frozen=True)
+class SegmentMetricsSettings:
+    segment_traversals_path: str
+    segment_metrics_path: str
+    min_observations: int
+    max_gap_seconds: float
+    min_confidence: float
+    min_samples: int
+    cassandra: CassandraSettings
+
+    @classmethod
+    def from_env(cls) -> "SegmentMetricsSettings":
+        max_gap_seconds = required_finite_float("SEGMENT_METRICS_MAX_GAP_SECONDS")
+        min_confidence = required_finite_float("SEGMENT_METRICS_MIN_CONFIDENCE")
+        if max_gap_seconds <= 0:
+            raise ValueError("SEGMENT_METRICS_MAX_GAP_SECONDS must be positive")
+        if not 0 <= min_confidence <= 1:
+            raise ValueError("SEGMENT_METRICS_MIN_CONFIDENCE must be between 0 and 1")
+        return cls(
+            segment_traversals_path=required("HDFS_SEGMENT_TRAVERSALS_PATH").rstrip("/"),
+            segment_metrics_path=required("HDFS_SEGMENT_METRICS_PATH").rstrip("/"),
+            min_observations=required_positive_int("SEGMENT_METRICS_MIN_OBSERVATIONS"),
+            max_gap_seconds=max_gap_seconds,
+            min_confidence=min_confidence,
+            min_samples=required_positive_int("SEGMENT_METRICS_MIN_SAMPLES"),
+            cassandra=CassandraSettings.from_env(),
+        )
