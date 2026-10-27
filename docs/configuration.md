@@ -181,6 +181,16 @@ docker compose --profile batch run --rm spark-segment-metrics \
     --start-date 2026-10-01 --end-date 2026-10-07
 ```
 
+## Транспортные аномалии Spark job (T14)
+
+`spark-transport-anomalies` читает T09 route matches и T10 stop arrivals одного дня. Пороговые
+`ANOMALY_*` параметры управляют расстоянием пачки, коротким/длинным интервалом, длительной
+неподвижностью, исчезновением вдали от конечной и GPS‑скачками. Все параметры обязательны.
+
+```shell
+docker compose --profile batch run --rm spark-transport-anomalies --event-date 2026-10-01
+```
+
 ## Cassandra serving layer
 
 Schema bootstrap создаёт только таблицы, для которых уже есть конкретные query patterns:
@@ -195,6 +205,7 @@ Schema bootstrap создаёт только таблицы, для которы
 | `routes_by_feed` | Список маршрутов версии feed | `static_feed_version`: ≈ 500 строк |
 | `stops_by_route` | Остановки вариантов маршрута по порядку | `(static_feed_version, route_id)`: ≈ 2 × 30 строк |
 | `segment_metrics_by_route_bucket` | Метрики участков маршрута по типу дня и часу | Один маршрут и час выбранного диапазона анализа |
+| `anomalies_by_route_day` | События аномалий маршрута за день | `(algorithm_version, route_id, event_date)` |
 
 При polling раз в 10 секунд position partition содержит не более 8 640 наблюдений в день до
 дедупликации; при ETA polling раз в 30 секунд — не более 2 880 snapshots. Это ограничивает

@@ -305,3 +305,70 @@ class SegmentMetricsSettings:
             min_samples=required_positive_int("SEGMENT_METRICS_MIN_SAMPLES"),
             cassandra=CassandraSettings.from_env(),
         )
+
+
+@dataclass(frozen=True)
+class AnomalySettings:
+    matches_path: str
+    stop_arrivals_path: str
+    anomalies_path: str
+    bunching_distance_m: float
+    snapshot_seconds: int
+    short_headway_seconds: int
+    long_headway_seconds: int
+    stationary_speed_mps: float
+    stationary_progress_m: float
+    stationary_duration_seconds: int
+    max_observation_gap_seconds: int
+    disappearance_seconds: int
+    terminal_zone_m: float
+    gps_jump_speed_mps: float
+    shape_offset_m: float
+    cassandra: CassandraSettings
+
+    @classmethod
+    def from_env(cls) -> "AnomalySettings":
+        floats = {
+            name: required_finite_float(env)
+            for name, env in {
+                "bunching_distance_m": "ANOMALY_BUNCHING_DISTANCE_M",
+                "stationary_speed_mps": "ANOMALY_STATIONARY_SPEED_MPS",
+                "stationary_progress_m": "ANOMALY_STATIONARY_PROGRESS_M",
+                "terminal_zone_m": "ANOMALY_TERMINAL_ZONE_M",
+                "gps_jump_speed_mps": "ANOMALY_GPS_JUMP_SPEED_MPS",
+                "shape_offset_m": "ANOMALY_SHAPE_OFFSET_M",
+            }.items()
+        }
+        if any(value <= 0 for value in floats.values()):
+            raise ValueError("ANOMALY distance and speed thresholds must be positive")
+        integers = {
+            name: required_positive_int(env)
+            for name, env in {
+                "snapshot_seconds": "ANOMALY_SNAPSHOT_SECONDS",
+                "short_headway_seconds": "ANOMALY_SHORT_HEADWAY_SECONDS",
+                "long_headway_seconds": "ANOMALY_LONG_HEADWAY_SECONDS",
+                "stationary_duration_seconds": "ANOMALY_STATIONARY_DURATION_SECONDS",
+                "max_observation_gap_seconds": "ANOMALY_MAX_OBSERVATION_GAP_SECONDS",
+                "disappearance_seconds": "ANOMALY_DISAPPEARANCE_SECONDS",
+            }.items()
+        }
+        if integers["short_headway_seconds"] >= integers["long_headway_seconds"]:
+            raise ValueError("ANOMALY_SHORT_HEADWAY_SECONDS must be less than the long threshold")
+        return cls(
+            matches_path=required("HDFS_ROUTE_MATCHES_PATH").rstrip("/"),
+            stop_arrivals_path=required("HDFS_STOP_ARRIVALS_PATH").rstrip("/"),
+            anomalies_path=required("HDFS_TRANSPORT_ANOMALIES_PATH").rstrip("/"),
+            bunching_distance_m=floats["bunching_distance_m"],
+            snapshot_seconds=integers["snapshot_seconds"],
+            short_headway_seconds=integers["short_headway_seconds"],
+            long_headway_seconds=integers["long_headway_seconds"],
+            stationary_speed_mps=floats["stationary_speed_mps"],
+            stationary_progress_m=floats["stationary_progress_m"],
+            stationary_duration_seconds=integers["stationary_duration_seconds"],
+            max_observation_gap_seconds=integers["max_observation_gap_seconds"],
+            disappearance_seconds=integers["disappearance_seconds"],
+            terminal_zone_m=floats["terminal_zone_m"],
+            gps_jump_speed_mps=floats["gps_jump_speed_mps"],
+            shape_offset_m=floats["shape_offset_m"],
+            cassandra=CassandraSettings.from_env(),
+        )
