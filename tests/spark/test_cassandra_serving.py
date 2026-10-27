@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from spb_transport_spark.cassandra_sink import (
+    ANOMALIES_TABLE,
     ETA_TABLES,
     POSITION_TABLES,
     SEGMENT_METRICS_TABLE,
@@ -17,7 +18,7 @@ TEMPLATE = Path(__file__).parents[2] / "infra" / "cassandra" / "serving.cql.temp
 PLACEHOLDERS = {"KEYSPACE", "DATACENTER", "REPLICATION_FACTOR"}
 LATEST_TABLES = {"vehicle_latest_by_vehicle", "vehicles_latest_by_route"}
 EVENT_TABLES = (*POSITION_TABLES, *ETA_TABLES)
-SERVING_TABLES = (*EVENT_TABLES, *STATIC_TABLES, SEGMENT_METRICS_TABLE)
+SERVING_TABLES = (*EVENT_TABLES, *STATIC_TABLES, SEGMENT_METRICS_TABLE, ANOMALIES_TABLE)
 
 
 def _render_template() -> str:
