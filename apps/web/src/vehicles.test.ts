@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Route, VehiclePosition } from "./api/types";
-import { apiStatusLabel, filterVehicles, routeOptions } from "./vehicles";
+import { apiStatusLabel, filterVehicles, routeLabel, routeOptions } from "./vehicles";
 
 function vehicle(vehicleId: string, routeId: string | null): VehiclePosition {
   return {
@@ -30,6 +30,7 @@ const routes: Route[] = [
 describe("vehicle filters", () => {
   it("builds naturally sorted route options without missing routes", () => {
     expect(routeOptions(vehicles, routes).map(({ route_id }) => route_id)).toEqual(["2", "10"]);
+    expect(routeLabel(routes[0])).toBe("К-10");
   });
 
   it("offers routes without static metadata by their id", () => {

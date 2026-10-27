@@ -7,6 +7,7 @@ import type { VehiclePosition } from "../api/types";
 
 interface VehicleDetailsProps {
   vehicle: VehiclePosition;
+  routeName: string;
 }
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -20,7 +21,7 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function VehicleDetails({ vehicle }: VehicleDetailsProps) {
+export function VehicleDetails({ vehicle, routeName }: VehicleDetailsProps) {
   const timestamp = new Intl.DateTimeFormat("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",
@@ -39,7 +40,7 @@ export function VehicleDetails({ vehicle }: VehicleDetailsProps) {
         )}
       </Stack>
       <Stack spacing={1}>
-        <Field label="Маршрут" value={vehicle.route_id ?? "—"} />
+        <Field label="Маршрут" value={routeName} />
         <Field
           label="Скорость"
           value={vehicle.speed === null ? "—" : `${Math.round(vehicle.speed * 3.6)} км/ч`}

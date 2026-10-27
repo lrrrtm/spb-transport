@@ -32,6 +32,8 @@ export function VehicleSidebar({
   onRouteChange,
   onRetry,
 }: VehicleSidebarProps) {
+  const selectedRoute = routes.find(({ route_id }) => route_id === selectedVehicle?.route_id);
+
   return (
     <Paper
       component="aside"
@@ -59,7 +61,12 @@ export function VehicleSidebar({
             Показано {shownCount.toLocaleString("ru-RU")} из {totalCount.toLocaleString("ru-RU")}
           </Typography>
         )}
-        {selectedVehicle !== null && <VehicleDetails vehicle={selectedVehicle} />}
+        {selectedVehicle !== null && (
+          <VehicleDetails
+            vehicle={selectedVehicle}
+            routeName={selectedRoute === undefined ? (selectedVehicle.route_id ?? "—") : routeLabel(selectedRoute)}
+          />
+        )}
       </Stack>
     </Paper>
   );
