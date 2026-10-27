@@ -85,6 +85,7 @@ def test_metrics_filter_bad_coverage_and_calculate_robust_statistics() -> None:
         .first()
     )
 
+    assert result is not None
     assert result.day_type == "weekday" and result.hour == 7
     assert result.total_samples == 4 and result.qualified_samples == 3
     assert result.coverage == pytest.approx(0.75)
