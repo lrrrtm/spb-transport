@@ -104,6 +104,44 @@ STATIC_TABLES = (
     ),
 )
 
+SEGMENT_METRICS_TABLE = ServingTable(
+    "segment_metrics_by_route_bucket",
+    (
+        "static_feed_version",
+        "route_id",
+        "analysis_start",
+        "analysis_end",
+        "day_type",
+        "hour",
+        "shape_id",
+        "direction_id",
+        "pattern_id",
+        "from_stop_id",
+        "to_stop_id",
+        "from_stop_index",
+        "to_stop_index",
+        "segment_length_m",
+        "total_samples",
+        "qualified_samples",
+        "vehicle_count",
+        "service_day_count",
+        "coverage",
+        "travel_time_p25_s",
+        "travel_time_p50_s",
+        "travel_time_p75_s",
+        "travel_time_p90_s",
+        "travel_time_p95_s",
+        "travel_time_iqr_s",
+        "travel_time_mad_s",
+        "speed_p50_mps",
+        "stop_delay_share",
+        "peak_offpeak_ratio",
+        "enough_data",
+        "algorithm_version",
+    ),
+    expiring=False,
+)
+
 
 def configure_cassandra(builder: Any, settings: CassandraSettings) -> Any:
     builder = (
@@ -164,3 +202,8 @@ def write_eta_history(frame: DataFrame, settings: CassandraSettings) -> None:
 def write_static_table(frame: DataFrame, settings: CassandraSettings, table: ServingTable) -> None:
     """Static metadata keyed by feed version: rewriting the same version is idempotent."""
     _write(frame, settings, table, writetime=False)
+
+
+def write_segment_metrics(frame: DataFrame, settings: CassandraSettings) -> None:
+    """Publish deterministic aggregates; the table primary key makes replay idempotent."""
+    _write(frame, settings, SEGMENT_METRICS_TABLE, writetime=False)
