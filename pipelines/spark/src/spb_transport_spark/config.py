@@ -372,3 +372,30 @@ class AnomalySettings:
             shape_offset_m=floats["shape_offset_m"],
             cassandra=CassandraSettings.from_env(),
         )
+
+
+@dataclass(frozen=True)
+class EtaBaselineSettings:
+    eta_history_path: str
+    stop_arrivals_path: str
+    segment_traversals_path: str
+    output_path: str
+    max_current_stop_age_seconds: int
+    max_horizon_seconds: int
+    min_segment_samples: int
+    cassandra: CassandraSettings
+
+    @classmethod
+    def from_env(cls) -> "EtaBaselineSettings":
+        return cls(
+            eta_history_path=required("HDFS_ETA_HISTORY_PATH").rstrip("/"),
+            stop_arrivals_path=required("HDFS_STOP_ARRIVALS_PATH").rstrip("/"),
+            segment_traversals_path=required("HDFS_SEGMENT_TRAVERSALS_PATH").rstrip("/"),
+            output_path=required("HDFS_ETA_COMPARISON_PATH").rstrip("/"),
+            max_current_stop_age_seconds=required_positive_int(
+                "ETA_BASELINE_MAX_CURRENT_STOP_AGE_SECONDS"
+            ),
+            max_horizon_seconds=required_positive_int("ETA_BASELINE_MAX_HORIZON_SECONDS"),
+            min_segment_samples=required_positive_int("ETA_BASELINE_MIN_SEGMENT_SAMPLES"),
+            cassandra=CassandraSettings.from_env(),
+        )

@@ -35,10 +35,12 @@ Processed positions сохраняют поля `vehicle-position.v1`, Kafka met
 | `stop_events_batch.py` (T10) | `matched` строки `vehicle_route_matches` + static `trips`, `shapes`, `stops`, `stop_times` | `shape_stop_patterns`, `stop_arrival_events`, `segment_traversals` | patterns — `algorithm_version/static_feed_version`; события — `algorithm_version/event_date` | dynamic overwrite партиций, `event_id` из run, pattern и индекса остановки |
 | `segment_metrics_batch.py` (T13) | `segment_traversals` за диапазон дней | gold `segment_metrics` + Cassandra serving | `algorithm_version/analysis_start/analysis_end` | повтор диапазона перезаписывает ту же Parquet-партицию и Cassandra primary keys |
 | `anomalies_batch.py` (T14) | route matches и stop arrivals за день | gold `transport_anomalies` + Cassandra serving | `algorithm_version/event_date` | детерминированный `anomaly_id`, dynamic overwrite дневной партиции |
+| `eta_baseline_batch.py` (T15) | ETA history, stop arrivals и segment traversals | прогнозы/метрики `eta_comparison` + Cassandra | evaluation date и версия алгоритма | обучение заканчивается до дня оценки; повтор перезаписывает те же ключи |
 
 Batch jobs запускаются по порядку для одного дня и одной версии static feed:
 `spark-route-matching`, затем `spark-stop-events`; после накопления нескольких дней запускается
-`spark-segment-metrics` и `spark-transport-anomalies` (см. `docs/configuration.md`).
+`spark-segment-metrics`, `spark-transport-anomalies` и `spark-eta-baseline`
+(см. `docs/configuration.md`).
 
 Интеграционные тесты batch jobs запускают локальный Spark (`make test-spark`, нужна Java 17);
 обычный `make check` их пропускает, в CI они идут отдельным job `spark`.
@@ -68,6 +70,7 @@ T10 так же группирует `matched` наблюдения по `run_id
 | `eta_history_by_vehicle_day` | ETA | `collected_at` | нет |
 | `segment_metrics_by_route_bucket` | T13 segment metrics | нет | нет |
 | `anomalies_by_route_day` | T14 anomaly events | нет | нет |
+| `eta_comparison_by_route_day` | T15 ETA evaluation | нет | нет |
 
 Идемпотентность: history primary keys содержат детерминированный `event_id`, поэтому
 повтор micro-batch перезаписывает те же строки. Для latest-таблиц writetime равен времени
