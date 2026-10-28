@@ -167,6 +167,26 @@ ANOMALIES_TABLE = ServingTable(
     expiring=False,
 )
 
+ETA_COMPARISON_TABLE = ServingTable(
+    "eta_comparison_by_route_day",
+    (
+        "algorithm_version",
+        "evaluation_date",
+        "training_start",
+        "training_end",
+        "route_id",
+        "horizon_bucket",
+        "labeled_forecasts",
+        "paired_forecasts",
+        "baseline_coverage",
+        "official_mae_s",
+        "official_median_absolute_error_s",
+        "baseline_mae_s",
+        "baseline_median_absolute_error_s",
+    ),
+    expiring=False,
+)
+
 
 def configure_cassandra(builder: Any, settings: CassandraSettings) -> Any:
     builder = (
@@ -237,3 +257,8 @@ def write_segment_metrics(frame: DataFrame, settings: CassandraSettings) -> None
 def write_anomalies(frame: DataFrame, settings: CassandraSettings) -> None:
     """Publish deterministic anomaly events for route/day queries."""
     _write(frame, settings, ANOMALIES_TABLE, writetime=False)
+
+
+def write_eta_comparison(frame: DataFrame, settings: CassandraSettings) -> None:
+    """Publish route/day ETA evaluation aggregates."""
+    _write(frame, settings, ETA_COMPARISON_TABLE, writetime=False)

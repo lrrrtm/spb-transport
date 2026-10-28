@@ -155,3 +155,20 @@ CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.anomalies_by_route_day (
   longitude double,
   PRIMARY KEY ((algorithm_version, route_id, event_date), started_at, anomaly_id)
 ) WITH CLUSTERING ORDER BY (started_at DESC, anomaly_id ASC);
+
+CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.eta_comparison_by_route_day (
+  algorithm_version text,
+  evaluation_date date,
+  training_start date,
+  training_end date,
+  route_id text,
+  horizon_bucket text,
+  labeled_forecasts bigint,
+  paired_forecasts bigint,
+  baseline_coverage double,
+  official_mae_s double,
+  official_median_absolute_error_s double,
+  baseline_mae_s double,
+  baseline_median_absolute_error_s double,
+  PRIMARY KEY ((algorithm_version, evaluation_date, training_start, training_end, route_id), horizon_bucket)
+);
