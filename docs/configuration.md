@@ -191,6 +191,17 @@ docker compose --profile batch run --rm spark-segment-metrics \
 docker compose --profile batch run --rm spark-transport-anomalies --event-date 2026-10-01
 ```
 
+## ETA baseline и offline evaluation Spark job (T15)
+
+`spark-eta-baseline` строит медианы времени прохождения участков на прошлом диапазоне, формирует
+собственный ETA от последней пройденной остановки и сравнивает его с официальным прогнозом на
+одних фактических прибытиях. Обучающий диапазон обязан закончиться до дня оценки.
+
+```shell
+docker compose --profile batch run --rm spark-eta-baseline \
+    --training-start 2026-10-01 --training-end 2026-10-06 --evaluation-date 2026-10-07
+```
+
 ## Cassandra serving layer
 
 Schema bootstrap создаёт только таблицы, для которых уже есть конкретные query patterns:
@@ -206,6 +217,7 @@ Schema bootstrap создаёт только таблицы, для которы
 | `stops_by_route` | Остановки вариантов маршрута по порядку | `(static_feed_version, route_id)`: ≈ 2 × 30 строк |
 | `segment_metrics_by_route_bucket` | Метрики участков маршрута по типу дня и часу | Один маршрут и час выбранного диапазона анализа |
 | `anomalies_by_route_day` | События аномалий маршрута за день | `(algorithm_version, route_id, event_date)` |
+| `eta_comparison_by_route_day` | Сравнение baseline и официального ETA | Маршрут, день оценки и обучающий диапазон |
 
 При polling раз в 10 секунд position partition содержит не более 8 640 наблюдений в день до
 дедупликации; при ETA polling раз в 30 секунд — не более 2 880 snapshots. Это ограничивает
