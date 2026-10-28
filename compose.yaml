@@ -695,6 +695,47 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  spark-slowdown-classifier:
+    profiles: ["batch"]
+    image: ${SPARK_IMAGE:?SPARK_IMAGE is required}
+    build:
+      context: .
+      dockerfile: pipelines/spark/Dockerfile
+      args:
+        UV_INSECURE_HOST: ${UV_INSECURE_HOST-}
+    # Arguments: --training-start/--training-end/--evaluation-date YYYY-MM-DD
+    entrypoint:
+      - /opt/spark/bin/spark-submit
+      - --master
+      - spark://spark-master:7077
+      - --deploy-mode
+      - client
+      - --executor-cores
+      - ${SPARK_EXECUTOR_CORES:?SPARK_EXECUTOR_CORES is required}
+      - --conf
+      - spark.cores.max=${SPARK_MAX_CORES_PER_JOB:?SPARK_MAX_CORES_PER_JOB is required}
+      - --conf
+      - spark.sql.shuffle.partitions=${SPARK_SHUFFLE_PARTITIONS:?SPARK_SHUFFLE_PARTITIONS is required}
+      - --conf
+      - spark.executorEnv.PYTHONPATH=/app/pipelines/spark/src
+      - /app/pipelines/spark/src/spb_transport_spark/slowdown_classifier_batch.py
+    command: []
+    environment:
+      PYSPARK_PYTHON: /app/.venv/bin/python
+      PYTHONPATH: /app/pipelines/spark/src
+      HDFS_SEGMENT_TRAVERSALS_PATH: ${HDFS_SEGMENT_TRAVERSALS_PATH:?HDFS_SEGMENT_TRAVERSALS_PATH is required}
+      HDFS_SLOWDOWN_CLASSIFIER_PATH: ${HDFS_SLOWDOWN_CLASSIFIER_PATH:?HDFS_SLOWDOWN_CLASSIFIER_PATH is required}
+      SLOWDOWN_MIN_BASELINE_SAMPLES: ${SLOWDOWN_MIN_BASELINE_SAMPLES:?SLOWDOWN_MIN_BASELINE_SAMPLES is required}
+      SLOWDOWN_CLASSIFIER_RISK_THRESHOLD: ${SLOWDOWN_CLASSIFIER_RISK_THRESHOLD:?SLOWDOWN_CLASSIFIER_RISK_THRESHOLD is required}
+    depends_on:
+      hdfs-datanode:
+        condition: service_healthy
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_healthy
+    restart: "no"
+
   spark-static-serving:
     profiles: ["batch"]
     image: ${SPARK_IMAGE:?SPARK_IMAGE is required}
