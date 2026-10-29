@@ -202,6 +202,18 @@ docker compose --profile batch run --rm spark-eta-baseline \
     --training-start 2026-10-01 --training-end 2026-10-06 --evaluation-date 2026-10-07
 ```
 
+## Классификация будущего замедления Spark job (T16)
+
+`spark-slowdown-classifier` размечает следующий участок как замедленный при превышении его
+исторического p90. Признаки берутся только из текущего участка. Прозрачный baseline считает
+риском отношение текущего времени к исторической медиане и сравнивает его с
+`SLOWDOWN_CLASSIFIER_RISK_THRESHOLD`. Обучающий диапазон заканчивается до дня оценки.
+
+```shell
+docker compose --profile batch run --rm spark-slowdown-classifier \
+    --training-start 2026-10-01 --training-end 2026-10-06 --evaluation-date 2026-10-07
+```
+
 ## Cassandra serving layer
 
 Schema bootstrap создаёт только таблицы, для которых уже есть конкретные query patterns:

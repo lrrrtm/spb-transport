@@ -36,10 +36,12 @@ Processed positions сохраняют поля `vehicle-position.v1`, Kafka met
 | `segment_metrics_batch.py` (T13) | `segment_traversals` за диапазон дней | gold `segment_metrics` + Cassandra serving | `algorithm_version/analysis_start/analysis_end` | повтор диапазона перезаписывает ту же Parquet-партицию и Cassandra primary keys |
 | `anomalies_batch.py` (T14) | route matches и stop arrivals за день | gold `transport_anomalies` + Cassandra serving | `algorithm_version/event_date` | детерминированный `anomaly_id`, dynamic overwrite дневной партиции |
 | `eta_baseline_batch.py` (T15) | ETA history, stop arrivals и segment traversals | прогнозы/метрики `eta_comparison` + Cassandra | evaluation date и версия алгоритма | обучение заканчивается до дня оценки; повтор перезаписывает те же ключи |
+| `slowdown_classifier_batch.py` (T16) | segment traversals обучающего диапазона и дня оценки | датасет прогнозов и метрики `slowdown_classifier` | `algorithm_version/evaluation_date` | target следующего участка и baseline p90 строятся без данных после train end |
 
 Batch jobs запускаются по порядку для одного дня и одной версии static feed:
 `spark-route-matching`, затем `spark-stop-events`; после накопления нескольких дней запускается
-`spark-segment-metrics`, `spark-transport-anomalies` и `spark-eta-baseline`
+`spark-segment-metrics`, `spark-transport-anomalies`, `spark-eta-baseline` и
+`spark-slowdown-classifier`
 (см. `docs/configuration.md`).
 
 Интеграционные тесты batch jobs запускают локальный Spark (`make test-spark`, нужна Java 17);

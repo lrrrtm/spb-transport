@@ -399,3 +399,23 @@ class EtaBaselineSettings:
             min_segment_samples=required_positive_int("ETA_BASELINE_MIN_SEGMENT_SAMPLES"),
             cassandra=CassandraSettings.from_env(),
         )
+
+
+@dataclass(frozen=True)
+class SlowdownClassifierSettings:
+    segment_traversals_path: str
+    output_path: str
+    min_baseline_samples: int
+    risk_threshold: float
+
+    @classmethod
+    def from_env(cls) -> "SlowdownClassifierSettings":
+        risk_threshold = required_finite_float("SLOWDOWN_CLASSIFIER_RISK_THRESHOLD")
+        if risk_threshold <= 0:
+            raise ValueError("SLOWDOWN_CLASSIFIER_RISK_THRESHOLD must be positive")
+        return cls(
+            segment_traversals_path=required("HDFS_SEGMENT_TRAVERSALS_PATH").rstrip("/"),
+            output_path=required("HDFS_SLOWDOWN_CLASSIFIER_PATH").rstrip("/"),
+            min_baseline_samples=required_positive_int("SLOWDOWN_MIN_BASELINE_SAMPLES"),
+            risk_threshold=risk_threshold,
+        )
