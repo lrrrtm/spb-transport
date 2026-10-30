@@ -10,8 +10,11 @@ import Stack from "@mui/material/Stack";
 import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 
 import { VehicleSidebar } from "./components/VehicleSidebar";
+import { AnalyticsPage } from "./components/AnalyticsPage";
 import { MapErrorBoundary } from "./components/MapErrorBoundary";
 import { useLiveVehicles } from "./hooks/useLiveVehicles";
 import { apiStatusLabel, filterVehicles, formatUpdatedAt, routeOptions } from "./vehicles";
@@ -21,6 +24,7 @@ const VehicleMap = lazy(() =>
 );
 
 export default function App() {
+  const [section, setSection] = useState<"live" | "analytics">("live");
   const { vehicles, routes, readiness, updatedAt, loading, refreshing, error, refresh } = useLiveVehicles();
   const [routeId, setRouteId] = useState<string | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
@@ -67,11 +71,15 @@ export default function App() {
             </Tooltip>
           </Stack>
         </Toolbar>
+        <Tabs value={section} onChange={(_, value) => setSection(value)} sx={{ minHeight: 48, px: 2 }}>
+          <Tab value="live" label="Транспорт" />
+          <Tab value="analytics" label="Аналитика" />
+        </Tabs>
         {refreshing && (
           <LinearProgress sx={{ bottom: 0, left: 0, position: "absolute", right: 0 }} />
         )}
       </AppBar>
-      <Box component="main" sx={{ display: "flex", height: "calc(100vh - 65px)" }}>
+      {section === "analytics" ? <AnalyticsPage /> : <Box component="main" sx={{ display: "flex", height: "calc(100vh - 113px)" }}>
         <VehicleSidebar
           routes={activeRoutes}
           routeId={routeId}
@@ -93,7 +101,7 @@ export default function App() {
             />
           </Suspense>
         </MapErrorBoundary>
-      </Box>
+      </Box>}
     </Box>
   );
 }
