@@ -172,3 +172,34 @@ CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.eta_comparison_by_route_day (
   baseline_median_absolute_error_s double,
   PRIMARY KEY ((algorithm_version, evaluation_date, training_start, training_end, route_id), horizon_bucket)
 );
+
+CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.route_features_by_period (
+  model_id text,
+  static_feed_version text,
+  route_id text,
+  period_start date,
+  period_end date,
+  qualified_samples bigint,
+  speed_p50_mps double,
+  travel_variability double,
+  peak_offpeak_ratio double,
+  stop_delay_share double,
+  coverage double,
+  bunching_per_day double,
+  irregular_headways_per_day double,
+  stationary_per_day double,
+  algorithm_version text,
+  PRIMARY KEY ((model_id), route_id, static_feed_version)
+);
+
+CREATE TABLE IF NOT EXISTS {{KEYSPACE}}.route_cluster_by_model (
+  model_id text,
+  static_feed_version text,
+  route_id text,
+  cluster_id int,
+  distance double,
+  period_start date,
+  period_end date,
+  algorithm_version text,
+  PRIMARY KEY ((model_id), cluster_id, route_id, static_feed_version)
+);

@@ -419,3 +419,26 @@ class SlowdownClassifierSettings:
             min_baseline_samples=required_positive_int("SLOWDOWN_MIN_BASELINE_SAMPLES"),
             risk_threshold=risk_threshold,
         )
+
+
+@dataclass(frozen=True)
+class RouteClusteringSettings:
+    segment_metrics_path: str
+    anomalies_path: str
+    output_path: str
+    cluster_count: int
+    max_iterations: int
+    min_qualified_samples: int
+    cassandra: CassandraSettings
+
+    @classmethod
+    def from_env(cls) -> "RouteClusteringSettings":
+        return cls(
+            segment_metrics_path=required("HDFS_SEGMENT_METRICS_PATH").rstrip("/"),
+            anomalies_path=required("HDFS_TRANSPORT_ANOMALIES_PATH").rstrip("/"),
+            output_path=required("HDFS_ROUTE_CLUSTERS_PATH").rstrip("/"),
+            cluster_count=required_positive_int("ROUTE_CLUSTER_COUNT"),
+            max_iterations=required_positive_int("ROUTE_CLUSTER_MAX_ITERATIONS"),
+            min_qualified_samples=required_positive_int("ROUTE_CLUSTER_MIN_QUALIFIED_SAMPLES"),
+            cassandra=CassandraSettings.from_env(),
+        )
