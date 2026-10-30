@@ -16,6 +16,7 @@ from typing import Any
 
 import pytest
 from pydantic import SecretStr
+from spb_transport_api.app import create_app
 from spb_transport_api.config import ApiSettings
 from spb_transport_api.paging import PageRequest
 from spb_transport_api.repository import CassandraRepository
@@ -193,3 +194,36 @@ def test_secret_password_type_is_accepted() -> None:
         update={"cassandra_username": "u", "cassandra_password": SecretStr("p")}
     )
     assert settings.cassandra_password is not None
+
+
+def test_api_reads_seeded_data_end_to_end() -> None:
+    host = os.environ.get("CASSANDRA_TEST_HOST")
+    if not host:
+        pytest.skip("CASSANDRA_TEST_HOST is not set")
+    settings = _settings(
+        host,
+        int(os.environ.get("CASSANDRA_TEST_PORT", "9042")),
+        os.environ.get("CASSANDRA_TEST_DATACENTER", "datacenter1"),
+    )
+
+    def clock() -> datetime:
+        return datetime(2026, 10, 1, 8, 1, tzinfo=UTC)
+
+    from fastapi.testclient import TestClient
+
+    with TestClient(create_app(settings, clock=clock)) as client:
+        assert client.get("/ready").status_code == 200
+        vehicles = client.get("/api/v1/vehicles", params={"limit": 10}).json()
+        route = client.get("/api/v1/routes/r1").json()
+        stops = client.get("/api/v1/routes/r1/stops").json()
+
+    assert {item["vehicle_id"] for item in vehicles["items"]} == {"v1", "v2", "v3"}
+    assert route["short_name"] == "1"
+    assert [item["stop_id"] for item in stops["variants"][0]["stops"]] == ["s1", "s2"]
+
+
+def test_repository_reconnects_after_application_restart(repository: CassandraRepository) -> None:
+    repository.close()
+
+    repository.ping()
+    assert repository.current_feed_version() == VERSION

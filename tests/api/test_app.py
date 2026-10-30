@@ -226,6 +226,19 @@ def test_cassandra_failure_is_503(client: TestClient, repository: FakeRepository
     assert client.get(f"{BASE}/vehicles/v1/positions").status_code == 503
 
 
+def test_api_recovers_after_cassandra_outage(
+    client: TestClient, repository: FakeRepository
+) -> None:
+    repository.available = False
+    assert client.get("/ready").status_code == 503
+
+    repository.available = True
+    repository.latest["v1"] = position("v1", NOW)
+
+    assert client.get("/ready").status_code == 200
+    assert client.get(f"{BASE}/vehicles/v1").status_code == 200
+
+
 def test_stale_paging_state_is_400(client: TestClient) -> None:
     cursor = encode_cursor(Cursor(scope="vehicles", paging_state=b"not-a-state"))
 
