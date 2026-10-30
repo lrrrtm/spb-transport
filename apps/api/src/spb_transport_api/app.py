@@ -15,12 +15,18 @@ from fastapi.responses import JSONResponse
 from spb_transport_api.config import ApiSettings
 from spb_transport_api.cursor import Cursor, InvalidCursor, decode_cursor, encode_cursor
 from spb_transport_api.models import (
+    AnalyticsDataset,
+    AnalyticsOverview,
+    EtaComparison,
     EtaPage,
     Health,
     Readiness,
     Route,
+    RouteCluster,
     RoutePage,
     RouteStops,
+    SegmentMetric,
+    TransportAnomaly,
     VehiclePage,
     VehiclePosition,
 )
@@ -126,6 +132,12 @@ def create_app(
         if version is None:
             raise HTTPException(503, "static GTFS metadata has not been published yet")
         return version
+
+    def current(dataset: str) -> AnalyticsDataset:
+        value = repository.analytics_current(dataset)
+        if value is None:
+            raise HTTPException(404, f"analytics dataset {dataset} has not been published yet")
+        return value
 
     @app.get("/health", response_model=Health, tags=["service"])
     def health() -> Health:
@@ -286,6 +298,75 @@ def create_app(
             route_id, PageRequest(page_size(limit), None if state is None else state.paging_state)
         )
         return VehiclePage(items=fresh(page.items), next_cursor=_next(scope, page.paging_state))
+
+    @app.get(f"{API_PREFIX}/analytics", response_model=AnalyticsOverview, tags=["analytics"])
+    def analytics() -> AnalyticsOverview:
+        names = ("segment_metrics", "anomalies", "eta_comparison", "route_clusters")
+        return AnalyticsOverview(
+            datasets=[
+                value for name in names if (value := repository.analytics_current(name)) is not None
+            ]
+        )
+
+    @app.get(
+        f"{API_PREFIX}/analytics/routes/{{route_id}}/segments",
+        response_model=list[SegmentMetric],
+        tags=["analytics"],
+    )
+    def route_segments(
+        route_id: Identifier,
+        day_type: Annotated[str, Query(pattern="^(weekday|weekend)$")] = "weekday",
+        hour: Annotated[int, Query(ge=0, le=23)] = 8,
+    ) -> list[SegmentMetric]:
+        dataset = current("segment_metrics")
+        metrics = repository.segment_metrics(dataset, route_id, day_type, hour)
+        stops = repository.route_stops(dataset.static_feed_version or current_feed(), route_id)
+        by_shape = {
+            (variant.shape_id, stop.stop_id): stop
+            for variant in stops.variants
+            for stop in variant.stops
+        }
+        return [
+            metric.model_copy(
+                update={
+                    "from_stop_name": before.stop_name if before else None,
+                    "to_stop_name": after.stop_name if after else None,
+                    "from_latitude": before.latitude if before else None,
+                    "from_longitude": before.longitude if before else None,
+                    "to_latitude": after.latitude if after else None,
+                    "to_longitude": after.longitude if after else None,
+                }
+            )
+            for metric in metrics
+            for before, after in [
+                (
+                    by_shape.get((metric.shape_id, metric.from_stop_id)),
+                    by_shape.get((metric.shape_id, metric.to_stop_id)),
+                )
+            ]
+        ]
+
+    @app.get(
+        f"{API_PREFIX}/analytics/routes/{{route_id}}/anomalies",
+        response_model=list[TransportAnomaly],
+        tags=["analytics"],
+    )
+    def route_anomalies(route_id: Identifier) -> list[TransportAnomaly]:
+        return repository.anomalies(current("anomalies"), route_id)
+
+    @app.get(
+        f"{API_PREFIX}/analytics/routes/{{route_id}}/eta-comparison",
+        response_model=list[EtaComparison],
+        tags=["analytics"],
+    )
+    def route_eta_comparison(route_id: Identifier) -> list[EtaComparison]:
+        return repository.eta_comparison(current("eta_comparison"), route_id)
+
+    @app.get(
+        f"{API_PREFIX}/analytics/clusters", response_model=list[RouteCluster], tags=["analytics"]
+    )
+    def clusters() -> list[RouteCluster]:
+        return repository.route_clusters(current("route_clusters"))
 
     return app
 

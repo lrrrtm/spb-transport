@@ -15,12 +15,17 @@ from typing import Any, Protocol
 
 from spb_transport_api.config import ApiSettings
 from spb_transport_api.models import (
+    AnalyticsDataset,
+    EtaComparison,
     EtaSnapshot,
     Route,
+    RouteCluster,
     RouteStop,
     RouteStops,
     RouteVariant,
+    SegmentMetric,
     StopForecast,
+    TransportAnomaly,
     VehiclePosition,
 )
 from spb_transport_api.paging import PageRequest, Slice
@@ -90,6 +95,14 @@ class ServingRepository(Protocol):
     def route(self, feed_version: str, route_id: str) -> Route | None: ...
 
     def route_stops(self, feed_version: str, route_id: str) -> RouteStops: ...
+
+    def analytics_current(self, dataset: str) -> AnalyticsDataset | None: ...
+    def segment_metrics(
+        self, current: AnalyticsDataset, route_id: str, day_type: str, hour: int
+    ) -> list[SegmentMetric]: ...
+    def anomalies(self, current: AnalyticsDataset, route_id: str) -> list[TransportAnomaly]: ...
+    def eta_comparison(self, current: AnalyticsDataset, route_id: str) -> list[EtaComparison]: ...
+    def route_clusters(self, current: AnalyticsDataset) -> list[RouteCluster]: ...
 
     def close(self) -> None: ...
 
@@ -271,6 +284,31 @@ class CassandraRepository:
                 f"SELECT {', '.join(STOP_COLUMNS)} FROM {ks}.stops_by_route"
                 " WHERE static_feed_version = ? AND route_id = ?"
             ),
+            "analytics_current": f"SELECT * FROM {ks}.analytics_current WHERE dataset = ?",
+            "segment_metrics": (
+                "SELECT shape_id, direction_id, from_stop_id, to_stop_id, from_stop_index,"
+                " segment_length_m, qualified_samples, coverage, travel_time_p50_s,"
+                " travel_time_p90_s, speed_p50_mps, stop_delay_share, peak_offpeak_ratio,"
+                f" enough_data FROM {ks}.segment_metrics_by_route_bucket"
+                " WHERE algorithm_version = ? AND static_feed_version = ? AND route_id = ?"
+                " AND analysis_start = ? AND analysis_end = ? AND day_type = ? AND hour = ?"
+            ),
+            "anomalies": (
+                "SELECT started_at, anomaly_id, anomaly_type, vehicle_id, related_vehicle_id,"
+                " stop_id, ended_at, duration_s, distance_gap_m, headway_s"
+                f" FROM {ks}.anomalies_by_route_day"
+                " WHERE algorithm_version = ? AND route_id = ? AND event_date = ?"
+            ),
+            "eta_comparison": (
+                "SELECT horizon_bucket, labeled_forecasts, paired_forecasts, baseline_coverage,"
+                f" official_mae_s, baseline_mae_s FROM {ks}.eta_comparison_by_route_day"
+                " WHERE algorithm_version = ? AND evaluation_date = ? AND training_start = ?"
+                " AND training_end = ? AND route_id = ?"
+            ),
+            "route_cluster_assignments": (
+                f"SELECT * FROM {ks}.route_cluster_by_model WHERE model_id = ?"
+            ),
+            "route_features": f"SELECT * FROM {ks}.route_features_by_period WHERE model_id = ?",
         }
 
     def _ready_session(self) -> Session:
@@ -355,6 +393,80 @@ class CassandraRepository:
     def route_stops(self, feed_version: str, route_id: str) -> RouteStops:
         rows = list(self._execute("route_stops", (feed_version, route_id)))
         return route_stops_from_rows(feed_version, route_id, rows)
+
+    def analytics_current(self, dataset: str) -> AnalyticsDataset | None:
+        row = self._execute("analytics_current", (dataset,)).one()
+        if row is None:
+            return None
+        return AnalyticsDataset(
+            **{name: getattr(row, name) for name in AnalyticsDataset.model_fields}
+        )
+
+    def segment_metrics(
+        self, current: AnalyticsDataset, route_id: str, day_type: str, hour: int
+    ) -> list[SegmentMetric]:
+        params = (
+            current.algorithm_version,
+            current.static_feed_version,
+            route_id,
+            current.period_start,
+            current.period_end,
+            day_type,
+            hour,
+        )
+        return [
+            SegmentMetric(
+                **{
+                    name: getattr(row, name)
+                    for name in SegmentMetric.model_fields
+                    if hasattr(row, name)
+                }
+            )
+            for row in self._execute("segment_metrics", params)
+        ]
+
+    def anomalies(self, current: AnalyticsDataset, route_id: str) -> list[TransportAnomaly]:
+        rows = self._execute("anomalies", (current.algorithm_version, route_id, current.period_end))
+        return [
+            TransportAnomaly(**{name: getattr(row, name) for name in TransportAnomaly.model_fields})
+            for row in rows
+        ]
+
+    def eta_comparison(self, current: AnalyticsDataset, route_id: str) -> list[EtaComparison]:
+        params = (
+            current.algorithm_version,
+            current.period_end,
+            current.training_start,
+            current.training_end,
+            route_id,
+        )
+        return [
+            EtaComparison(**{name: getattr(row, name) for name in EtaComparison.model_fields})
+            for row in self._execute("eta_comparison", params)
+        ]
+
+    def route_clusters(self, current: AnalyticsDataset) -> list[RouteCluster]:
+        assignments = {
+            row.route_id: row
+            for row in self._execute("route_cluster_assignments", (current.model_id,))
+        }
+        features = {
+            row.route_id: row for row in self._execute("route_features", (current.model_id,))
+        }
+        return [
+            RouteCluster(
+                route_id=route_id,
+                cluster_id=row.cluster_id,
+                distance=row.distance,
+                **{
+                    name: getattr(features[route_id], name)
+                    for name in RouteCluster.model_fields
+                    if name not in {"route_id", "cluster_id", "distance"}
+                },
+            )
+            for route_id, row in assignments.items()
+            if route_id in features
+        ]
 
     def close(self) -> None:
         with self._lock:

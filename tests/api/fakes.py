@@ -4,7 +4,17 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
-from spb_transport_api.models import EtaSnapshot, Route, RouteStops, VehiclePosition
+from spb_transport_api.models import (
+    AnalyticsDataset,
+    EtaComparison,
+    EtaSnapshot,
+    Route,
+    RouteCluster,
+    RouteStops,
+    SegmentMetric,
+    TransportAnomaly,
+    VehiclePosition,
+)
 from spb_transport_api.paging import PageRequest, Slice
 from spb_transport_api.repository import InvalidPagingState, ServingUnavailable
 
@@ -31,6 +41,7 @@ class FakeRepository:
         self.stops: dict[str, RouteStops] = {}
         self.calls: list[tuple[str, object]] = []
         self.closed = False
+        self.analytics: dict[str, AnalyticsDataset] = {}
 
     def _check(self) -> None:
         if not self.available:
@@ -86,6 +97,24 @@ class FakeRepository:
         return self.stops.get(
             route_id, RouteStops(route_id=route_id, static_feed_version=feed_version, variants=[])
         )
+
+    def analytics_current(self, dataset: str) -> AnalyticsDataset | None:
+        self._check()
+        return self.analytics.get(dataset)
+
+    def segment_metrics(
+        self, current: AnalyticsDataset, route_id: str, day_type: str, hour: int
+    ) -> list[SegmentMetric]:
+        return []
+
+    def anomalies(self, current: AnalyticsDataset, route_id: str) -> list[TransportAnomaly]:
+        return []
+
+    def eta_comparison(self, current: AnalyticsDataset, route_id: str) -> list[EtaComparison]:
+        return []
+
+    def route_clusters(self, current: AnalyticsDataset) -> list[RouteCluster]:
+        return []
 
     def close(self) -> None:
         self.closed = True

@@ -18,6 +18,11 @@ OpenAPI (`/docs`, `/openapi.json`), генерируется из `apps/api/src/
 | `GET /api/v1/routes/{route_id}` | Маршрут; 404, если нет в текущей версии | `routes_by_feed` |
 | `GET /api/v1/routes/{route_id}/stops` | Варианты маршрута (shape) с остановками по порядку | `stops_by_route` |
 | `GET /api/v1/routes/{route_id}/vehicles?limit&cursor` | Текущие машины маршрута | `vehicles_latest_by_route` |
+| `GET /api/v1/analytics` | Опубликованные аналитические срезы и их периоды | `analytics_current` |
+| `GET /api/v1/analytics/routes/{route_id}/segments?day_type&hour` | Метрики участков с координатами остановок | `segment_metrics_by_route_bucket`, `stops_by_route` |
+| `GET /api/v1/analytics/routes/{route_id}/anomalies` | Аномалии последнего опубликованного дня | `anomalies_by_route_day` |
+| `GET /api/v1/analytics/routes/{route_id}/eta-comparison` | Ошибки официального и baseline ETA | `eta_comparison_by_route_day` |
+| `GET /api/v1/analytics/clusters` | Кластеры и признаки маршрутов | `route_cluster_by_model`, `route_features_by_period` |
 
 ## Семантика
 
