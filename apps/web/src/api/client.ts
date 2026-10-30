@@ -1,4 +1,4 @@
-import type { Readiness, Route, RoutePage, VehiclePage, VehiclePosition } from "./types";
+import type { AnalyticsOverview, EtaComparison, Readiness, Route, RouteCluster, RoutePage, SegmentMetric, TransportAnomaly, VehiclePage, VehiclePosition } from "./types";
 
 const PAGE_SIZE = 500;
 const MAX_PAGES = 100;
@@ -136,3 +136,13 @@ export async function fetchReadiness(signal?: AbortSignal): Promise<Readiness> {
   }
   return value as Readiness;
 }
+
+async function fetchTyped<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return (await requestJson(path, signal)) as T;
+}
+
+export const fetchAnalyticsOverview = (signal?: AbortSignal) => fetchTyped<AnalyticsOverview>("/api/v1/analytics", signal);
+export const fetchSegments = (routeId: string, dayType: string, hour: number, signal?: AbortSignal) => fetchTyped<SegmentMetric[]>(`/api/v1/analytics/routes/${encodeURIComponent(routeId)}/segments?day_type=${dayType}&hour=${hour}`, signal);
+export const fetchAnomalies = (routeId: string, signal?: AbortSignal) => fetchTyped<TransportAnomaly[]>(`/api/v1/analytics/routes/${encodeURIComponent(routeId)}/anomalies`, signal);
+export const fetchEtaComparison = (routeId: string, signal?: AbortSignal) => fetchTyped<EtaComparison[]>(`/api/v1/analytics/routes/${encodeURIComponent(routeId)}/eta-comparison`, signal);
+export const fetchClusters = (signal?: AbortSignal) => fetchTyped<RouteCluster[]>("/api/v1/analytics/clusters", signal);

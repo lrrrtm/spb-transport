@@ -224,6 +224,22 @@ ROUTE_CLUSTERS_TABLE = ServingTable(
     expiring=False,
 )
 
+ANALYTICS_CURRENT_TABLE = ServingTable(
+    "analytics_current",
+    (
+        "dataset",
+        "algorithm_version",
+        "model_id",
+        "static_feed_version",
+        "period_start",
+        "period_end",
+        "training_start",
+        "training_end",
+        "updated_at",
+    ),
+    expiring=False,
+)
+
 
 def configure_cassandra(builder: Any, settings: CassandraSettings) -> Any:
     builder = (
@@ -307,3 +323,8 @@ def write_route_clusters(
     """Publish route features and their assignment under one deterministic model id."""
     _write(features, settings, ROUTE_FEATURES_TABLE, writetime=False)
     _write(assignments, settings, ROUTE_CLUSTERS_TABLE, writetime=False)
+
+
+def write_analytics_current(frame: DataFrame, settings: CassandraSettings) -> None:
+    """Promote a successfully published analytical dataset for read-side discovery."""
+    _write(frame, settings, ANALYTICS_CURRENT_TABLE, writetime=False)

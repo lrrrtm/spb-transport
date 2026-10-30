@@ -4,7 +4,14 @@ from fastapi.testclient import TestClient
 from spb_transport_api.app import create_app
 from spb_transport_api.config import ApiSettings
 from spb_transport_api.cursor import Cursor, encode_cursor
-from spb_transport_api.models import EtaSnapshot, Route, RouteStop, RouteStops, RouteVariant
+from spb_transport_api.models import (
+    AnalyticsDataset,
+    EtaSnapshot,
+    Route,
+    RouteStop,
+    RouteStops,
+    RouteVariant,
+)
 
 from api.fakes import NOW, FakeRepository, position
 
@@ -189,6 +196,29 @@ def test_route_vehicles_are_fresh_vehicles_of_the_route(
     assert [v["vehicle_id"] for v in body["items"]] == ["a"]
 
 
+def test_analytics_uses_published_dataset_pointers(
+    client: TestClient, repository: FakeRepository
+) -> None:
+    repository.analytics["segment_metrics"] = AnalyticsDataset(
+        dataset="segment_metrics",
+        algorithm_version="segment-metrics-v1",
+        model_id=None,
+        static_feed_version="f" * 64,
+        period_start=NOW.date(),
+        period_end=NOW.date(),
+        training_start=None,
+        training_end=None,
+        updated_at=NOW,
+    )
+
+    overview = client.get(f"{BASE}/analytics")
+    segments = client.get(f"{BASE}/analytics/routes/r1/segments")
+
+    assert [item["dataset"] for item in overview.json()["datasets"]] == ["segment_metrics"]
+    assert segments.status_code == 200 and segments.json() == []
+    assert client.get(f"{BASE}/analytics/routes/r1/anomalies").status_code == 404
+
+
 def test_cassandra_failure_is_503(client: TestClient, repository: FakeRepository) -> None:
     repository.available = False
 
@@ -216,6 +246,11 @@ def test_openapi_documents_every_endpoint(client: TestClient) -> None:
     assert paths == {
         "/health",
         "/ready",
+        f"{BASE}/analytics",
+        f"{BASE}/analytics/clusters",
+        f"{BASE}/analytics/routes/{{route_id}}/segments",
+        f"{BASE}/analytics/routes/{{route_id}}/anomalies",
+        f"{BASE}/analytics/routes/{{route_id}}/eta-comparison",
         f"{BASE}/vehicles",
         f"{BASE}/vehicles/{{vehicle_id}}",
         f"{BASE}/vehicles/{{vehicle_id}}/positions",

@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from spb_transport_spark.cassandra_sink import (
+    ANALYTICS_CURRENT_TABLE,
     ANOMALIES_TABLE,
     ETA_COMPARISON_TABLE,
     ETA_TABLES,
@@ -29,6 +30,7 @@ SERVING_TABLES = (
     ETA_COMPARISON_TABLE,
     ROUTE_FEATURES_TABLE,
     ROUTE_CLUSTERS_TABLE,
+    ANALYTICS_CURRENT_TABLE,
 )
 
 

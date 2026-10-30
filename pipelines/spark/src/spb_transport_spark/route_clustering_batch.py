@@ -12,7 +12,11 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 from spb_transport_spark.anomalies_batch import ALGORITHM_VERSION as ANOMALY_VERSION
-from spb_transport_spark.cassandra_sink import configure_cassandra, write_route_clusters
+from spb_transport_spark.cassandra_sink import (
+    configure_cassandra,
+    write_analytics_current,
+    write_route_clusters,
+)
 from spb_transport_spark.config import RouteClusteringSettings
 from spb_transport_spark.segment_metrics_batch import ALGORITHM_VERSION as METRICS_VERSION
 
@@ -351,6 +355,23 @@ def run_job(
             f"{settings.output_path}/metrics"
         )
         write_route_clusters(features, cluster_frame, settings.cassandra)
+        pointer = (
+            features.select("static_feed_version")
+            .distinct()
+            .limit(1)
+            .select(
+                F.lit("route_clusters").alias("dataset"),
+                F.lit(ALGORITHM_VERSION).alias("algorithm_version"),
+                F.lit(identifier).alias("model_id"),
+                "static_feed_version",
+                F.lit(start_date.isoformat()).cast("date").alias("period_start"),
+                F.lit(end_date.isoformat()).cast("date").alias("period_end"),
+                F.lit(None).cast("date").alias("training_start"),
+                F.lit(None).cast("date").alias("training_end"),
+                F.current_timestamp().alias("updated_at"),
+            )
+        )
+        write_analytics_current(pointer, settings.cassandra)
         features.unpersist()
         return {"routes": float(len(routes)), "silhouette": silhouette}
     finally:

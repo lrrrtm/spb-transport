@@ -7,7 +7,11 @@ import logging
 from datetime import date
 from typing import TYPE_CHECKING
 
-from spb_transport_spark.cassandra_sink import configure_cassandra, write_anomalies
+from spb_transport_spark.cassandra_sink import (
+    configure_cassandra,
+    write_analytics_current,
+    write_anomalies,
+)
 from spb_transport_spark.config import AnomalySettings
 from spb_transport_spark.route_matching import ALGORITHM_VERSION as MATCH_VERSION
 from spb_transport_spark.stop_events import ALGORITHM_VERSION as STOP_EVENT_VERSION
@@ -362,6 +366,23 @@ def run_job(settings: AnomalySettings, event_date: date) -> dict[str, int]:
             settings.anomalies_path
         )
         write_anomalies(anomalies, settings.cassandra)
+        pointer = (
+            matches.select("static_feed_version")
+            .distinct()
+            .limit(1)
+            .select(
+                F.lit("anomalies").alias("dataset"),
+                F.lit(ALGORITHM_VERSION).alias("algorithm_version"),
+                F.lit(None).cast("string").alias("model_id"),
+                "static_feed_version",
+                day.alias("period_start"),
+                day.alias("period_end"),
+                F.lit(None).cast("date").alias("training_start"),
+                F.lit(None).cast("date").alias("training_end"),
+                F.current_timestamp().alias("updated_at"),
+            )
+        )
+        write_analytics_current(pointer, settings.cassandra)
         anomalies.unpersist()
         return counters
     finally:

@@ -7,7 +7,11 @@ import logging
 from datetime import date
 from typing import TYPE_CHECKING
 
-from spb_transport_spark.cassandra_sink import configure_cassandra, write_eta_comparison
+from spb_transport_spark.cassandra_sink import (
+    configure_cassandra,
+    write_analytics_current,
+    write_eta_comparison,
+)
 from spb_transport_spark.config import EtaBaselineSettings
 from spb_transport_spark.stop_events import ALGORITHM_VERSION as STOP_EVENT_VERSION
 
@@ -323,6 +327,18 @@ def run_job(
             f"{settings.output_path}/metrics"
         )
         write_eta_comparison(metrics, settings.cassandra)
+        pointer = spark.range(1).select(
+            F.lit("eta_comparison").alias("dataset"),
+            F.lit(ALGORITHM_VERSION).alias("algorithm_version"),
+            F.lit(None).cast("string").alias("model_id"),
+            F.lit(None).cast("string").alias("static_feed_version"),
+            F.lit(evaluation_date.isoformat()).cast("date").alias("period_start"),
+            F.lit(evaluation_date.isoformat()).cast("date").alias("period_end"),
+            F.lit(training_start.isoformat()).cast("date").alias("training_start"),
+            F.lit(training_end.isoformat()).cast("date").alias("training_end"),
+            F.current_timestamp().alias("updated_at"),
+        )
+        write_analytics_current(pointer, settings.cassandra)
         predictions.unpersist()
         metrics.unpersist()
         return counts
