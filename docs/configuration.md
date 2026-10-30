@@ -214,6 +214,17 @@ docker compose --profile batch run --rm spark-slowdown-classifier \
     --training-start 2026-10-01 --training-end 2026-10-06 --evaluation-date 2026-10-07
 ```
 
+## Признаки и кластеризация маршрутов Spark job (T17)
+
+`spark-route-clustering` объединяет T13 segment metrics и частоты событий T14 за одинаковый
+период. Маршруты с недостаточной выборкой исключаются. Число кластеров, максимум итераций и
+минимальное число качественных прохождений задаются `ROUTE_CLUSTER_*`.
+
+```shell
+docker compose --profile batch run --rm spark-route-clustering \
+    --start-date 2026-10-01 --end-date 2026-10-07
+```
+
 ## Cassandra serving layer
 
 Schema bootstrap создаёт только таблицы, для которых уже есть конкретные query patterns:
@@ -230,6 +241,8 @@ Schema bootstrap создаёт только таблицы, для которы
 | `segment_metrics_by_route_bucket` | Метрики участков маршрута по типу дня и часу | Один маршрут и час выбранного диапазона анализа |
 | `anomalies_by_route_day` | События аномалий маршрута за день | `(algorithm_version, route_id, event_date)` |
 | `eta_comparison_by_route_day` | Сравнение baseline и официального ETA | Маршрут, день оценки и обучающий диапазон |
+| `route_features_by_period` | Характеристики маршрутов модели | `model_id`: несколько сотен маршрутов |
+| `route_cluster_by_model` | Назначения маршрутов по кластерам | `model_id`: несколько сотен маршрутов |
 
 При polling раз в 10 секунд position partition содержит не более 8 640 наблюдений в день до
 дедупликации; при ETA polling раз в 30 секунд — не более 2 880 snapshots. Это ограничивает
