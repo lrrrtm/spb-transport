@@ -7,7 +7,11 @@ import logging
 from datetime import date
 from typing import TYPE_CHECKING
 
-from spb_transport_spark.cassandra_sink import configure_cassandra, write_segment_metrics
+from spb_transport_spark.cassandra_sink import (
+    configure_cassandra,
+    write_analytics_current,
+    write_segment_metrics,
+)
 from spb_transport_spark.config import SegmentMetricsSettings
 
 if TYPE_CHECKING:
@@ -159,6 +163,23 @@ def run_job(settings: SegmentMetricsSettings, start_date: date, end_date: date) 
             "algorithm_version", "analysis_start", "analysis_end"
         ).parquet(settings.segment_metrics_path)
         write_segment_metrics(metrics, settings.cassandra)
+        pointer = (
+            traversals.select("static_feed_version")
+            .distinct()
+            .limit(1)
+            .select(
+                F.lit("segment_metrics").alias("dataset"),
+                F.lit(ALGORITHM_VERSION).alias("algorithm_version"),
+                F.lit(None).cast("string").alias("model_id"),
+                "static_feed_version",
+                F.lit(start_date.isoformat()).cast("date").alias("period_start"),
+                F.lit(end_date.isoformat()).cast("date").alias("period_end"),
+                F.lit(None).cast("date").alias("training_start"),
+                F.lit(None).cast("date").alias("training_end"),
+                F.current_timestamp().alias("updated_at"),
+            )
+        )
+        write_analytics_current(pointer, settings.cassandra)
         metrics.unpersist()
         return int(count)
     finally:
