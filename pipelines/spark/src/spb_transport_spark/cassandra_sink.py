@@ -187,6 +187,43 @@ ETA_COMPARISON_TABLE = ServingTable(
     expiring=False,
 )
 
+ROUTE_FEATURES_TABLE = ServingTable(
+    "route_features_by_period",
+    (
+        "model_id",
+        "static_feed_version",
+        "route_id",
+        "period_start",
+        "period_end",
+        "qualified_samples",
+        "speed_p50_mps",
+        "travel_variability",
+        "peak_offpeak_ratio",
+        "stop_delay_share",
+        "coverage",
+        "bunching_per_day",
+        "irregular_headways_per_day",
+        "stationary_per_day",
+        "algorithm_version",
+    ),
+    expiring=False,
+)
+
+ROUTE_CLUSTERS_TABLE = ServingTable(
+    "route_cluster_by_model",
+    (
+        "model_id",
+        "static_feed_version",
+        "route_id",
+        "cluster_id",
+        "distance",
+        "period_start",
+        "period_end",
+        "algorithm_version",
+    ),
+    expiring=False,
+)
+
 
 def configure_cassandra(builder: Any, settings: CassandraSettings) -> Any:
     builder = (
@@ -262,3 +299,11 @@ def write_anomalies(frame: DataFrame, settings: CassandraSettings) -> None:
 def write_eta_comparison(frame: DataFrame, settings: CassandraSettings) -> None:
     """Publish route/day ETA evaluation aggregates."""
     _write(frame, settings, ETA_COMPARISON_TABLE, writetime=False)
+
+
+def write_route_clusters(
+    features: DataFrame, assignments: DataFrame, settings: CassandraSettings
+) -> None:
+    """Publish route features and their assignment under one deterministic model id."""
+    _write(features, settings, ROUTE_FEATURES_TABLE, writetime=False)
+    _write(assignments, settings, ROUTE_CLUSTERS_TABLE, writetime=False)
