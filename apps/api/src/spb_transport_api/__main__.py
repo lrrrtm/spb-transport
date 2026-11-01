@@ -7,6 +7,15 @@ import uvicorn
 from spb_transport_api.app import create_app
 from spb_transport_api.config import ApiSettings
 
+EXTRA_FIELDS = (
+    "duration_ms",
+    "error",
+    "event",
+    "method",
+    "path",
+    "status_code",
+)
+
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -16,9 +25,9 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        error = getattr(record, "error", None)
-        if error is not None:
-            payload["error"] = error
+        for field in EXTRA_FIELDS:
+            if hasattr(record, field) and (value := getattr(record, field)) is not None:
+                payload[field] = value
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)
