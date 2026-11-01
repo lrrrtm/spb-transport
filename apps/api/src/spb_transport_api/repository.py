@@ -80,6 +80,8 @@ class ServingRepository(Protocol):
 
     def vehicles_latest(self, page: PageRequest) -> Slice[VehiclePosition]: ...
 
+    def vehicle_observations(self) -> list[VehiclePosition]: ...
+
     def route_vehicles_latest(self, route_id: str, page: PageRequest) -> Slice[VehiclePosition]: ...
 
     def vehicle_positions(
@@ -367,6 +369,9 @@ class CassandraRepository:
 
     def vehicles_latest(self, page: PageRequest) -> Slice[VehiclePosition]:
         return self._slice("vehicles_latest", (), page, position_from_row)
+
+    def vehicle_observations(self) -> list[VehiclePosition]:
+        return [position_from_row(row) for row in self._execute("vehicles_latest", ())]
 
     def route_vehicles_latest(self, route_id: str, page: PageRequest) -> Slice[VehiclePosition]:
         return self._slice("route_vehicles_latest", (route_id,), page, position_from_row)

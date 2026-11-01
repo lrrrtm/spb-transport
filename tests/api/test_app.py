@@ -37,6 +37,21 @@ def test_ready_reports_cassandra_and_feed_version(
     assert down.json()["status"] == "unavailable"
 
 
+def test_observability_reports_freshness_and_quality(
+    client: TestClient, repository: FakeRepository
+) -> None:
+    repository.latest["fresh"] = position("fresh", NOW - timedelta(seconds=10), speed=0.0)
+    repository.latest["stale"] = position("stale", NOW - timedelta(minutes=10), speed=5.0)
+
+    body = client.get(f"{BASE}/observability").json()
+
+    assert body["vehicles_total"] == 2
+    assert body["vehicles_fresh"] == 1
+    assert body["vehicles_stale"] == 1
+    assert body["source_lag_seconds"] == 10
+    assert body["quality_flag_counts"] == {"stationary_observation": 1}
+
+
 def test_vehicles_are_paged_and_filtered_by_freshness(
     client: TestClient, repository: FakeRepository
 ) -> None:
@@ -264,6 +279,7 @@ def test_openapi_documents_every_endpoint(client: TestClient) -> None:
         f"{BASE}/analytics/routes/{{route_id}}/segments",
         f"{BASE}/analytics/routes/{{route_id}}/anomalies",
         f"{BASE}/analytics/routes/{{route_id}}/eta-comparison",
+        f"{BASE}/observability",
         f"{BASE}/vehicles",
         f"{BASE}/vehicles/{{vehicle_id}}",
         f"{BASE}/vehicles/{{vehicle_id}}/positions",
