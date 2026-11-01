@@ -13,6 +13,7 @@ from spb_transport_spark.cassandra_sink import (
     write_anomalies,
 )
 from spb_transport_spark.config import AnomalySettings
+from spb_transport_spark.logging_config import configure_logging
 from spb_transport_spark.route_matching import ALGORITHM_VERSION as MATCH_VERSION
 from spb_transport_spark.stop_events import ALGORITHM_VERSION as STOP_EVENT_VERSION
 
@@ -390,13 +391,13 @@ def run_job(settings: AnomalySettings, event_date: date) -> dict[str, int]:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    configure_logging()
     parser = argparse.ArgumentParser(description="Detect transport movement anomalies")
     parser.add_argument("--event-date", required=True, type=date.fromisoformat)
     arguments = parser.parse_args()
     counters = run_job(AnomalySettings.from_env(), arguments.event_date)
     logger.info(
-        "anomaly detection completed: %s", " ".join(f"{k}={v}" for k, v in sorted(counters.items()))
+        "anomaly detection completed", extra={"event": "batch_completed", "metrics": counters}
     )
 
 

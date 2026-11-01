@@ -13,6 +13,7 @@ from spb_transport_spark.cassandra_sink import (
     write_segment_metrics,
 )
 from spb_transport_spark.config import SegmentMetricsSettings
+from spb_transport_spark.logging_config import configure_logging
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
@@ -187,13 +188,16 @@ def run_job(settings: SegmentMetricsSettings, start_date: date, end_date: date) 
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    configure_logging()
     parser = argparse.ArgumentParser(description="Build robust segment bottleneck metrics")
     parser.add_argument("--start-date", required=True, type=date.fromisoformat)
     parser.add_argument("--end-date", required=True, type=date.fromisoformat)
     arguments = parser.parse_args()
     count = run_job(SegmentMetricsSettings.from_env(), arguments.start_date, arguments.end_date)
-    logger.info("segment metrics completed: rows=%d", count)
+    logger.info(
+        "segment metrics completed",
+        extra={"event": "batch_completed", "metrics": {"rows": count}},
+    )
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from pyspark.sql import Column, DataFrame, SparkSession
 
 from spb_transport_spark.config import required
+from spb_transport_spark.logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -281,7 +282,7 @@ def ingest(settings: StaticGtfsSettings) -> str:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO)
+    configure_logging()
     version = ingest(StaticGtfsSettings.from_env())
     logger.info("static GTFS ingestion completed", extra={"version": version})
 

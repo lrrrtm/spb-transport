@@ -18,6 +18,7 @@ from spb_transport_spark.cassandra_sink import (
     write_route_clusters,
 )
 from spb_transport_spark.config import RouteClusteringSettings
+from spb_transport_spark.logging_config import configure_logging
 from spb_transport_spark.segment_metrics_batch import ALGORITHM_VERSION as METRICS_VERSION
 
 if TYPE_CHECKING:
@@ -379,13 +380,15 @@ def run_job(
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    configure_logging()
     parser = argparse.ArgumentParser(description="Build route features and clusters")
     parser.add_argument("--start-date", required=True, type=date.fromisoformat)
     parser.add_argument("--end-date", required=True, type=date.fromisoformat)
     arguments = parser.parse_args()
     metrics = run_job(RouteClusteringSettings.from_env(), arguments.start_date, arguments.end_date)
-    logger.info("route clustering completed: %s", " ".join(f"{k}={v}" for k, v in metrics.items()))
+    logger.info(
+        "route clustering completed", extra={"event": "batch_completed", "metrics": metrics}
+    )
 
 
 if __name__ == "__main__":

@@ -23,6 +23,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from spb_transport_spark.config import StopEventSettings
+from spb_transport_spark.logging_config import configure_logging
 from spb_transport_spark.route_match_batch import (
     as_utc_epoch,
     build_shape_geometries,
@@ -401,18 +402,15 @@ def run_job(settings: StopEventSettings, event_date: date, static_version: str) 
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    configure_logging()
     parser = argparse.ArgumentParser(description="Derive stop arrivals and segment traversals")
     parser.add_argument("--event-date", required=True, type=date.fromisoformat)
     parser.add_argument("--static-version", required=True, type=static_version_argument)
     arguments = parser.parse_args()
     counters = run_job(StopEventSettings.from_env(), arguments.event_date, arguments.static_version)
     logger.info(
-        "stop events completed: event_date=%s static_version=%s algorithm_version=%s %s",
-        arguments.event_date,
-        arguments.static_version,
-        ALGORITHM_VERSION,
-        " ".join(f"{name}={count}" for name, count in sorted(counters.items())),
+        "stop events completed",
+        extra={"event": "batch_completed", "metrics": counters, "version": ALGORITHM_VERSION},
     )
 
 

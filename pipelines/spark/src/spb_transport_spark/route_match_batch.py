@@ -19,6 +19,7 @@ from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
 from spb_transport_spark.config import RouteMatchingSettings
+from spb_transport_spark.logging_config import configure_logging
 from spb_transport_spark.route_matching import (
     ALGORITHM_VERSION,
     MatchingParameters,
@@ -300,7 +301,7 @@ def run_job(
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    configure_logging()
     parser = argparse.ArgumentParser(description="Match one day of vehicle positions to shapes")
     parser.add_argument("--event-date", required=True, type=date.fromisoformat)
     parser.add_argument("--static-version", required=True, type=static_version_argument)
@@ -309,11 +310,8 @@ def main() -> None:
         RouteMatchingSettings.from_env(), arguments.event_date, arguments.static_version
     )
     logger.info(
-        "route matching completed: event_date=%s static_version=%s algorithm_version=%s %s",
-        arguments.event_date,
-        arguments.static_version,
-        ALGORITHM_VERSION,
-        " ".join(f"{status}={count}" for status, count in sorted(counters.items())),
+        "route matching completed",
+        extra={"event": "batch_completed", "metrics": counters, "version": ALGORITHM_VERSION},
     )
 
 
