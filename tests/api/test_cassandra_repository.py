@@ -182,3 +182,34 @@ def test_missing_rows_are_none(repo: CassandraRepository, session: FakeSession) 
 
     assert repo.current_feed_version() is None
     assert repo.vehicle_latest("nope") is None
+
+
+def test_observability_reads_complete_latest_snapshot(
+    repo: CassandraRepository, session: FakeSession
+) -> None:
+    observed_at = datetime(2026, 10, 1, 8)
+    session.results["vehicle_latest_by_vehicle"] = FakeResult(
+        [
+            PositionRow(
+                "v1",
+                "r1",
+                "e1",
+                observed_at,
+                observed_at,
+                59.9,
+                30.3,
+                None,
+                0.0,
+                None,
+                None,
+                ["stationary_observation"],
+            )
+        ]
+    )
+
+    [position] = repo.vehicle_observations()
+
+    bound, _ = session.executed[-1]
+    assert bound.fetch_size is None
+    assert position.vehicle_id == "v1"
+    assert position.quality_flags == ["stationary_observation"]

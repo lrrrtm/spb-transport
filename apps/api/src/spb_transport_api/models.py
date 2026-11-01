@@ -99,6 +99,16 @@ class Readiness(ApiModel):
     detail: str | None = None
 
 
+class Observability(ApiModel):
+    observed_at: datetime
+    latest_source_timestamp: datetime | None
+    source_lag_seconds: float | None
+    vehicles_total: int
+    vehicles_fresh: int
+    vehicles_stale: int
+    quality_flag_counts: dict[str, int]
+
+
 class AnalyticsDataset(ApiModel):
     dataset: str
     algorithm_version: str

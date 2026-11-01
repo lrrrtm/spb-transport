@@ -29,6 +29,7 @@ from spb_transport_spark.config import (
     required,
     required_finite_float,
 )
+from spb_transport_spark.logging_config import configure_logging
 from spb_transport_spark.route_match_batch import static_version_argument, unique_directions
 from spb_transport_spark.stop_events_batch import load_patterns
 from spb_transport_spark.stop_patterns import StopPattern
@@ -201,7 +202,7 @@ def publish(
 def main() -> None:
     from pyspark.sql import SparkSession
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    configure_logging()
     parser = argparse.ArgumentParser(description="Publish static GTFS metadata to Cassandra")
     parser.add_argument("--static-version", required=True, type=static_version_argument)
     arguments = parser.parse_args()
@@ -217,9 +218,12 @@ def main() -> None:
     finally:
         spark.stop()
     logger.info(
-        "static metadata published: static_version=%s %s",
-        arguments.static_version,
-        " ".join(f"{name}={count}" for name, count in sorted(counters.items())),
+        "static metadata published",
+        extra={
+            "event": "batch_completed",
+            "metrics": counters,
+            "version": arguments.static_version,
+        },
     )
 
 

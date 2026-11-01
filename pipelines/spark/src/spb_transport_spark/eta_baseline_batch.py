@@ -13,6 +13,7 @@ from spb_transport_spark.cassandra_sink import (
     write_eta_comparison,
 )
 from spb_transport_spark.config import EtaBaselineSettings
+from spb_transport_spark.logging_config import configure_logging
 from spb_transport_spark.stop_events import ALGORITHM_VERSION as STOP_EVENT_VERSION
 
 if TYPE_CHECKING:
@@ -347,7 +348,7 @@ def run_job(
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    configure_logging()
     parser = argparse.ArgumentParser(description="Evaluate historical segment ETA baseline")
     parser.add_argument("--training-start", required=True, type=date.fromisoformat)
     parser.add_argument("--training-end", required=True, type=date.fromisoformat)
@@ -359,7 +360,7 @@ def main() -> None:
         arguments.training_end,
         arguments.evaluation_date,
     )
-    logger.info("ETA evaluation completed: %s", " ".join(f"{k}={v}" for k, v in counts.items()))
+    logger.info("ETA evaluation completed", extra={"event": "batch_completed", "metrics": counts})
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ OpenAPI (`/docs`, `/openapi.json`), генерируется из `apps/api/src/
 |---|---|---|
 | `GET /health` | `{"status": "ok"}`; Cassandra не проверяется | — |
 | `GET /ready` | 200 `ready` или 503 `unavailable`; `static_feed_version` | `system.local`, `static_feed_current` |
+| `GET /api/v1/observability` | Свежесть позиций, лаг источника и счётчики quality flags | `vehicle_latest_by_vehicle` |
 | `GET /api/v1/vehicles?limit&cursor` | Последние позиции всех машин в окне свежести | `vehicle_latest_by_vehicle` |
 | `GET /api/v1/vehicles/{vehicle_id}` | Последняя позиция; 404, если её нет или она старше окна | `vehicle_latest_by_vehicle` |
 | `GET /api/v1/vehicles/{vehicle_id}/positions?from&to&limit&cursor` | История позиций в `[from, to)`, новые первыми | `vehicle_positions_by_vehicle_day` |
@@ -32,6 +33,9 @@ OpenAPI (`/docs`, `/openapi.json`), генерируется из `apps/api/src/
 - **Свежесть.** Latest-таблицы имеют TTL, но API дополнительно отбрасывает позиции старше
   `API_VEHICLE_FRESHNESS_SECONDS` по `source_timestamp`: наличие строки не доказывает активность.
   Поэтому страница списка может содержать меньше `limit` элементов при непустом `next_cursor`.
+- **Наблюдаемость.** Диагностический endpoint читает весь небольшой latest-срез и не принимает
+  пользовательские фильтры. `source_lag_seconds` считается от самой новой исходной позиции;
+  будущий timestamp даёт лаг `0`, а соответствующий quality flag остаётся в счётчиках.
 - **Пагинация** — курсором. `next_cursor` непрозрачен: он содержит paging state Cassandra и, для
   истории, день-партицию, с которой продолжать; курсор привязан к запросу (путь и фильтры), чужой
   или испорченный курсор — 400. `limit` от 1 до `API_MAX_PAGE_SIZE`. `next_cursor = null` — конец.

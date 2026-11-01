@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 EXTRA_FIELDS = (
     "attempt",
     "delay_seconds",
+    "duration_ms",
     "error",
     "event",
     "failed_batches",
@@ -12,6 +13,7 @@ EXTRA_FIELDS = (
     "published_eta_events",
     "published_events",
     "requested_vehicles",
+    "source_lag_seconds",
     "status_code",
 )
 

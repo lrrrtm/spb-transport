@@ -9,6 +9,7 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 from spb_transport_spark.config import SlowdownClassifierSettings
+from spb_transport_spark.logging_config import configure_logging
 from spb_transport_spark.stop_events import ALGORITHM_VERSION as STOP_EVENT_VERSION
 
 if TYPE_CHECKING:
@@ -293,7 +294,7 @@ def run_job(
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    configure_logging()
     parser = argparse.ArgumentParser(
         description="Train and evaluate next-segment slowdown baseline"
     )
@@ -308,7 +309,8 @@ def main() -> None:
         arguments.evaluation_date,
     )
     logger.info(
-        "slowdown classification completed: %s", " ".join(f"{k}={v}" for k, v in counts.items())
+        "slowdown classification completed",
+        extra={"event": "batch_completed", "metrics": counts},
     )
 
 

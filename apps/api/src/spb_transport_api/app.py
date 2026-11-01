@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Callable
+import time
+from collections import Counter
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
@@ -11,6 +13,7 @@ from typing import Annotated
 from fastapi import FastAPI, HTTPException, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.responses import Response
 
 from spb_transport_api.config import ApiSettings
 from spb_transport_api.cursor import Cursor, InvalidCursor, decode_cursor, encode_cursor
@@ -20,6 +23,7 @@ from spb_transport_api.models import (
     EtaComparison,
     EtaPage,
     Health,
+    Observability,
     Readiness,
     Route,
     RouteCluster,
@@ -81,6 +85,37 @@ def create_app(
             allow_methods=["GET"],
             allow_headers=["*"],
         )
+
+    @app.middleware("http")
+    async def access_log(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        started = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            logger.exception(
+                "HTTP request failed",
+                extra={
+                    "event": "http_request",
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": 500,
+                    "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                },
+            )
+            raise
+        logger.info(
+            "HTTP request completed",
+            extra={
+                "event": "http_request",
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+            },
+        )
+        return response
 
     @app.exception_handler(ServingUnavailable)
     async def unavailable(_: Request, error: ServingUnavailable) -> JSONResponse:
@@ -164,6 +199,24 @@ def create_app(
             )
             return JSONResponse(status_code=503, content=body.model_dump())
         return Readiness(status="ready", cassandra="ok", static_feed_version=version)
+
+    @app.get(f"{API_PREFIX}/observability", response_model=Observability, tags=["service"])
+    def observability() -> Observability:
+        observed_at = clock()
+        positions = repository.vehicle_observations()
+        cutoff = observed_at - timedelta(seconds=settings.vehicle_freshness_seconds)
+        fresh_count = sum(position.source_timestamp >= cutoff for position in positions)
+        latest = max((position.source_timestamp for position in positions), default=None)
+        flags = Counter(flag for position in positions for flag in position.quality_flags)
+        return Observability(
+            observed_at=observed_at,
+            latest_source_timestamp=latest,
+            source_lag_seconds=max(0.0, (observed_at - latest).total_seconds()) if latest else None,
+            vehicles_total=len(positions),
+            vehicles_fresh=fresh_count,
+            vehicles_stale=len(positions) - fresh_count,
+            quality_flag_counts=dict(sorted(flags.items())),
+        )
 
     @app.get(f"{API_PREFIX}/vehicles", response_model=VehiclePage, tags=["vehicles"])
     def vehicles(

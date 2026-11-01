@@ -49,6 +49,7 @@ class VehicleCollector:
         return response, requested_at, collected_at
 
     async def collect_positions_once(self) -> int:
+        cycle_started = time.monotonic()
         response, requested_at, collected_at = await self._timed_get("vehicle")
         try:
             result = parse_vehicle_feed(response.content, collected_at)
@@ -74,11 +75,20 @@ class VehicleCollector:
                 "event": "vehicle_feed_collected",
                 "published_events": len(result.events),
                 "invalid_entities": result.invalid_entities,
+                "duration_ms": round((time.monotonic() - cycle_started) * 1000, 1),
+                "source_lag_seconds": max(
+                    (
+                        (collected_at - event.source_timestamp).total_seconds()
+                        for event in result.events
+                    ),
+                    default=None,
+                ),
             },
         )
         return len(result.events)
 
     async def collect_eta_once(self) -> int:
+        cycle_started = time.monotonic()
         published_events = 0
         invalid_entities = 0
         failed_batches = 0
@@ -131,6 +141,7 @@ class VehicleCollector:
                 "published_eta_events": published_events,
                 "invalid_entities": invalid_entities,
                 "failed_batches": failed_batches,
+                "duration_ms": round((time.monotonic() - cycle_started) * 1000, 1),
             },
         )
         return published_events

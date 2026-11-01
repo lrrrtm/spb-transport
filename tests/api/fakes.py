@@ -62,6 +62,10 @@ class FakeRepository:
         self._check()
         return page_of(sorted(self.latest.values(), key=lambda p: p.vehicle_id), page)
 
+    def vehicle_observations(self) -> list[VehiclePosition]:
+        self._check()
+        return list(self.latest.values())
+
     def route_vehicles_latest(self, route_id: str, page: PageRequest) -> Slice[VehiclePosition]:
         self._check()
         rows = [p for p in self.latest.values() if p.route_id == route_id]
