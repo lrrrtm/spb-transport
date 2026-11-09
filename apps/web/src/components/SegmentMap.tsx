@@ -13,7 +13,7 @@ const SPB_CENTER: [number, number] = [30.3159, 59.9391];
 const mapStyle: StyleSpecification = { version: 8, sources: { osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" } }, layers: [{ id: "osm", type: "raster", source: "osm" }] };
 
 function geoJson(segments: SegmentMetric[]): FeatureCollection<LineString> {
-  return { type: "FeatureCollection", features: segments.flatMap((segment) => segment.from_longitude === null || segment.from_latitude === null || segment.to_longitude === null || segment.to_latitude === null ? [] : [{ type: "Feature" as const, geometry: { type: "LineString" as const, coordinates: [[segment.from_longitude, segment.from_latitude], [segment.to_longitude, segment.to_latitude]] }, properties: { speed: segment.speed_p50_mps * 3.6 } }]) };
+  return { type: "FeatureCollection", features: segments.flatMap((segment) => segment.speed_p50_mps === null || segment.from_longitude === null || segment.from_latitude === null || segment.to_longitude === null || segment.to_latitude === null ? [] : [{ type: "Feature" as const, geometry: { type: "LineString" as const, coordinates: [[segment.from_longitude, segment.from_latitude], [segment.to_longitude, segment.to_latitude]] }, properties: { speed: segment.speed_p50_mps * 3.6 } }]) };
 }
 
 export function SegmentMap({ segments }: { segments: SegmentMetric[] }) {

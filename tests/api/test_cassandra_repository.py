@@ -1,12 +1,15 @@
 import json
 from collections import namedtuple
 from datetime import UTC, date, datetime
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from cassandra import InvalidRequest
 from cassandra.cluster import NoHostAvailable
+from cassandra.util import Date
 from spb_transport_api.config import ApiSettings
+from spb_transport_api.models import SegmentMetric
 from spb_transport_api.paging import PageRequest
 from spb_transport_api.repository import (
     CassandraRepository,
@@ -213,3 +216,55 @@ def test_observability_reads_complete_latest_snapshot(
     assert bound.fetch_size is None
     assert position.vehicle_id == "v1"
     assert position.quality_flags == ["stationary_observation"]
+
+
+@pytest.mark.parametrize("date_type", [Date, date.fromisoformat])
+@pytest.mark.parametrize("with_training", [False, True])
+def test_analytics_dates_accept_cassandra_and_python_dates(
+    repo: CassandraRepository, session: FakeSession, date_type: Any, with_training: bool
+) -> None:
+    session.results["analytics_current"] = FakeResult(
+        [
+            SimpleNamespace(
+                dataset="segment_metrics",
+                algorithm_version="segment-metrics-v1",
+                model_id=None,
+                static_feed_version="f" * 64,
+                period_start=date_type("2026-11-05"),
+                period_end=date_type("2026-11-05"),
+                training_start=date_type("2026-11-04") if with_training else None,
+                training_end=date_type("2026-11-04") if with_training else None,
+                updated_at=datetime(2026, 11, 5, tzinfo=UTC),
+            )
+        ]
+    )
+
+    current = repo.analytics_current("segment_metrics")
+
+    assert current is not None
+    assert current.period_start == current.period_end == date(2026, 11, 5)
+    expected_training = date(2026, 11, 4) if with_training else None
+    assert current.training_start == current.training_end == expected_training
+
+
+def test_segment_without_qualified_samples_preserves_missing_metrics() -> None:
+    metric = SegmentMetric(
+        shape_id="shape",
+        direction_id=0,
+        from_stop_id="a",
+        to_stop_id="b",
+        from_stop_index=0,
+        segment_length_m=None,
+        qualified_samples=0,
+        coverage=0,
+        travel_time_p50_s=None,
+        travel_time_p90_s=None,
+        speed_p50_mps=None,
+        stop_delay_share=None,
+        peak_offpeak_ratio=None,
+        enough_data=False,
+    )
+
+    assert metric.model_dump(mode="json")["speed_p50_mps"] is None
+    assert metric.travel_time_p50_s is None
+    assert metric.peak_offpeak_ratio is None
