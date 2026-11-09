@@ -131,14 +131,14 @@ class SegmentMetric(ApiModel):
     from_stop_id: str
     to_stop_id: str
     from_stop_index: int
-    segment_length_m: float
+    segment_length_m: float | None
     qualified_samples: int
     coverage: float
-    travel_time_p50_s: float
-    travel_time_p90_s: float
-    speed_p50_mps: float
-    stop_delay_share: float
-    peak_offpeak_ratio: float
+    travel_time_p50_s: float | None
+    travel_time_p90_s: float | None
+    speed_p50_mps: float | None
+    stop_delay_share: float | None
+    peak_offpeak_ratio: float | None
     enough_data: bool
     from_stop_name: str | None = None
     to_stop_name: str | None = None

@@ -403,9 +403,12 @@ class CassandraRepository:
         row = self._execute("analytics_current", (dataset,)).one()
         if row is None:
             return None
-        return AnalyticsDataset(
-            **{name: getattr(row, name) for name in AnalyticsDataset.model_fields}
-        )
+        values = {name: getattr(row, name) for name in AnalyticsDataset.model_fields}
+        for name in ("period_start", "period_end", "training_start", "training_end"):
+            value = values[name]
+            if value is not None and not isinstance(value, date):
+                values[name] = value.date()
+        return AnalyticsDataset(**values)
 
     def segment_metrics(
         self, current: AnalyticsDataset, route_id: str, day_type: str, hour: int
