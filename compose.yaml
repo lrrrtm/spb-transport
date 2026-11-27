@@ -868,6 +868,7 @@ services:
     environment:
       API_HOST: 0.0.0.0
       API_PORT: 8000
+      API_STATIC_FEED_ZIP: /gtfs/feed.zip
       CASSANDRA_HOST: ${CASSANDRA_HOST:?CASSANDRA_HOST is required}
       CASSANDRA_NATIVE_PORT: ${CASSANDRA_NATIVE_PORT:?CASSANDRA_NATIVE_PORT is required}
       CASSANDRA_DATACENTER: ${CASSANDRA_DATACENTER:?CASSANDRA_DATACENTER is required}
@@ -883,6 +884,8 @@ services:
       API_CORS_ORIGINS: ${API_CORS_ORIGINS?API_CORS_ORIGINS must be set (may be empty)}
     ports:
       - "${API_EXTERNAL_PORT:?API_EXTERNAL_PORT is required}:8000"
+    volumes:
+      - ./data/gtfs:/gtfs:ro
     healthcheck:
       test:
         - CMD

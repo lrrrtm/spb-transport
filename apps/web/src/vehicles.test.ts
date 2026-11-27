@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Route, VehiclePosition } from "./api/types";
-import { apiStatusLabel, filterVehicles, routeLabel, routeOptions } from "./vehicles";
+import { apiStatusLabel, filterVehicles, routeLabel, routeOptions, routeSearchLabel } from "./vehicles";
 
 function vehicle(vehicleId: string, routeId: string | null): VehiclePosition {
   return {
@@ -28,6 +28,11 @@ const routes: Route[] = [
 ];
 
 describe("vehicle filters", () => {
+  it("distinguishes the same public number across transport modes", () => {
+    expect([3, 0, 11, null].map((route_type) => routeSearchLabel({ ...routes[2], route_type })))
+      .toEqual(["Автобус 1", "Трамвай 1", "Троллейбус 1", "1"]);
+  });
+
   it("builds naturally sorted route options without missing routes", () => {
     expect(routeOptions(vehicles, routes).map(({ route_id }) => route_id)).toEqual(["2", "10"]);
     expect(routeLabel(routes[0])).toBe("К-10");

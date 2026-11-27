@@ -18,6 +18,7 @@ OpenAPI (`/docs`, `/openapi.json`), генерируется из `apps/api/src/
 | `GET /api/v1/routes?limit&cursor` | Маршруты опубликованной версии static GTFS | `routes_by_feed` |
 | `GET /api/v1/routes/{route_id}` | Маршрут; 404, если нет в текущей версии | `routes_by_feed` |
 | `GET /api/v1/routes/{route_id}/stops` | Варианты маршрута (shape) с остановками по порядку | `stops_by_route` |
+| `GET /api/v1/routes/{route_id}/geometry` | GeoJSON MultiLineString со всеми вариантами маршрута | `trips.txt` и `shapes.txt` из локального архива `API_STATIC_FEED_ZIP` |
 | `GET /api/v1/routes/{route_id}/vehicles?limit&cursor` | Текущие машины маршрута | `vehicles_latest_by_route` |
 | `GET /api/v1/analytics` | Опубликованные аналитические срезы и их периоды | `analytics_current` |
 | `GET /api/v1/analytics/routes/{route_id}/segments?day_type&hour` | Метрики участков с координатами остановок | `segment_metrics_by_route_bucket`, `stops_by_route` |
@@ -57,3 +58,7 @@ OpenAPI (`/docs`, `/openapi.json`), генерируется из `apps/api/src/
 | 503 | Cassandra недоступна, таймаут, static metadata не опубликованы |
 
 Тело ошибки: `{"detail": "..."}`.
+
+For route geometry in Docker Compose, place the static GTFS ZIP for the active
+feed at `data/gtfs/feed.zip`. Without it, the geometry endpoint returns 503.
+For standalone API runs, set `API_STATIC_FEED_ZIP` to the local ZIP path.

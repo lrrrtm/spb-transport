@@ -1,4 +1,6 @@
 from datetime import timedelta
+from pathlib import Path
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 from spb_transport_api.app import create_app
@@ -287,6 +289,7 @@ def test_openapi_documents_every_endpoint(client: TestClient) -> None:
         f"{BASE}/routes",
         f"{BASE}/routes/{{route_id}}",
         f"{BASE}/routes/{{route_id}}/stops",
+        f"{BASE}/routes/{{route_id}}/geometry",
         f"{BASE}/routes/{{route_id}}/vehicles",
     }
 
@@ -298,3 +301,26 @@ def test_repository_is_closed_on_shutdown(
         pass
 
     assert repository.closed
+
+
+def test_route_geometry(client: TestClient, settings: ApiSettings, tmp_path: Path) -> None:
+    path = tmp_path / "feed.zip"
+    settings.static_feed_zip = path
+    assert client.get(f"{BASE}/routes/42/geometry").status_code == 503
+
+    with ZipFile(path, "w") as archive:
+        archive.writestr("trips.txt", "route_id,shape_id\n42,test-shape\n")
+        archive.writestr(
+            "shapes.txt",
+            "shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n"
+            "test-shape,59.95,30.35,2\n"
+            "test-shape,59.90,30.30,1\n",
+        )
+
+    response = client.get(f"{BASE}/routes/42/geometry")
+    assert response.status_code == 200
+    assert response.json() == {
+        "type": "MultiLineString",
+        "coordinates": [[[30.30, 59.90], [30.35, 59.95]]],
+    }
+    assert client.get(f"{BASE}/routes/99/geometry").status_code == 404

@@ -10,7 +10,23 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       port: 5173,
-      proxy: { "/api": proxy, "/ready": proxy, "/health": proxy },
+      proxy: {
+        "/api": proxy, "/ready": proxy, "/health": proxy,
+        "/basemap/": {
+          target: "https://tiles.openfreemap.org",
+          changeOrigin: true,
+          rewrite: (path) => path.slice("/basemap".length),
+          configure(server) {
+            server.on("proxyReq", (request) => {
+              // Forward only tile-related headers. Tunnel credentials stay on our origin.
+              const allowed = ["host", "accept", "accept-encoding", "if-none-match", "if-modified-since"];
+              for (const header of request.getHeaderNames()) {
+                if (!allowed.includes(header)) request.removeHeader(header);
+              }
+            });
+          },
+        },
+      },
     },
   };
 });

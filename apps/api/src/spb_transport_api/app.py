@@ -41,6 +41,7 @@ from spb_transport_api.repository import (
     ServingRepository,
     ServingUnavailable,
 )
+from spb_transport_api.route_shapes import read_route_shapes
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +328,16 @@ def create_app(
         if found is None:
             raise HTTPException(404, "route not found in the current static GTFS version")
         return found
+
+    @app.get(f"{API_PREFIX}/routes/{{route_id}}/geometry", tags=["routes"])
+    def route_geometry(route_id: Identifier) -> dict:
+        path = settings.static_feed_zip
+        if path is None or not path.is_file():
+            raise HTTPException(503, "Static GTFS archive is unavailable")
+        lines = read_route_shapes(path, path.stat().st_mtime_ns).get(route_id)
+        if not lines:
+            raise HTTPException(404, "No shape for this route")
+        return {"type": "MultiLineString", "coordinates": lines}
 
     @app.get(f"{API_PREFIX}/routes/{{route_id}}/stops", response_model=RouteStops, tags=["routes"])
     def route_stops(route_id: Identifier) -> RouteStops:

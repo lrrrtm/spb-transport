@@ -1,5 +1,11 @@
 import type { Readiness, Route, VehiclePosition } from "./api/types";
 
+export const transportModes: Record<number, { name: string; color: string }> = {
+  0: { name: "Трамвай", color: "#bf3935" },
+  3: { name: "Автобус", color: "#1466ac" },
+  11: { name: "Троллейбус", color: "#00815e" },
+};
+
 /**
  * Routes of the vehicles currently on the map. A route without static metadata (not published
  * yet or unavailable) is still offered by its id so that filtering does not depend on it.
@@ -36,6 +42,11 @@ export function apiStatusLabel(
 
 export function routeLabel(route: Route): string {
   return route.short_name ?? route.long_name ?? route.route_id;
+}
+
+export function routeSearchLabel(route: Route): string {
+  const mode = transportModes[route.route_type ?? -1];
+  return mode ? `${mode.name} ${routeLabel(route)}` : routeLabel(route);
 }
 
 export function filterVehicles(
