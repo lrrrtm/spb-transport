@@ -330,7 +330,7 @@ def create_app(
         return found
 
     @app.get(f"{API_PREFIX}/routes/{{route_id}}/geometry", tags=["routes"])
-    def route_geometry(route_id: Identifier) -> dict:
+    def route_geometry(route_id: Identifier) -> dict[str, str | list[list[tuple[float, float]]]]:
         path = settings.static_feed_zip
         if path is None or not path.is_file():
             raise HTTPException(503, "Static GTFS archive is unavailable")
