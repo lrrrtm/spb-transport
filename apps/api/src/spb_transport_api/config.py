@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -8,6 +10,7 @@ class ApiSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
 
     host: str = Field(min_length=1, validation_alias="API_HOST")
+    static_feed_zip: Path | None = Field(default=None, validation_alias="API_STATIC_FEED_ZIP")
     port: int = Field(gt=0, lt=65536, validation_alias="API_PORT")
     cassandra_host: str = Field(min_length=1, validation_alias="CASSANDRA_HOST")
     cassandra_port: int = Field(gt=0, lt=65536, validation_alias="CASSANDRA_NATIVE_PORT")
